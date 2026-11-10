@@ -57,6 +57,7 @@ La `claveUnica` evita que confirmar dos veces registre dos movimientos.
 ## Reglas de las cifras
 - **Tengo hoy:** suma de cuentas líquidas (efectivo, débito, otros), con USD convertido al tipo de cambio de la configuración. Excluye líneas de crédito.
 - **Esto ya tiene dueño:** compromisos pendientes vencidos o que vencen hasta la fecha del próximo ingreso, inclusive. Cada obligación cuenta una sola vez. Cada tarjeta aparta sola el pago de su último corte, con su propio día de corte y fecha límite de pago (si el mes no tiene ese día, se usa el último). Usa el mínimo como reserva, descuenta lo pagado desde ese corte y muestra cuánto quedaría si se pagara el pago sin intereses.
+- **Gastos con tarjeta de crédito:** no bajan *Tengo hoy*; lo gastado con cada tarjeta desde su último corte se aparta completo en *Esto ya tiene dueño* de inmediato, en su moneda convertida a MXN. Lo pagado por encima del estado de cuenta lo va cubriendo.
 - **Me queda realmente:** la primera cifra menos la segunda. Si es negativa, muestra cuánto falta. Si falta la fecha del próximo ingreso, la pide antes de dar una cifra definitiva.
 - Un movimiento con `afectaMisCifras = false` se registra pero no mueve saldos ni cifras.
 - Los cargos de otras personas con `afectaMisCifras = true` sí mueven saldos y se muestran sumados aparte.
@@ -110,3 +111,5 @@ Abres la app y ves cuánto te queda en menos de 10 segundos, y registras un gast
 ## Historial
 - 2026-11-10 · Plano inicial (modo rápido) · construido a partir del plan de salida de deudas y el prompt previo de Compraholica IA.
 - 2026-11-10 · Fase 1 · cada tarjeta lleva su propio día de corte y de pago; el motor calcula su reserva sin compromisos manuales.
+- 2026-11-10 · Fase 2 · captura en una línea con tipo sugerido, bitácora congelada que solo crece, corrección con "Deshacer" (reverso) y clave única por borrador. Los datos viven en memoria hasta la Fase 3.
+- 2026-11-10 · Fase 2 · los gastos pueden salir de una tarjeta (Nu, Banamex Clásica, BofA Travel Rewards y BofA Unlimited en USD) y se apartan desde ya; la captura reconoce la cuenta o tarjeta nombrada en la nota y recuerda la última tarjeta en pesos.

@@ -53,14 +53,30 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
     if (t.tipo !== 'tarjeta' || t.diaCorte === undefined || t.diaPago === undefined) continue
     const desde = ultimoCorte(hoy, t.diaCorte)
     const vence = pagoDelCorte(desde, t.diaPago)
-    if (vence > corte) continue
     const pagado = movs
       .filter(m => m.tipo === 'pago_deuda' && m.deudaId === t.id && fechaLocal(m.ts) >= desde)
       .reduce((s, m) => s + m.monto, 0)
-    const reserva = Math.max(0, t.minimo - pagado)
-    const extra = Math.max(0, (t.pagoSinIntereses ?? 0) - pagado - reserva)
-    if (reserva + extra === 0) continue
-    apartados.push({ nombre: t.nombre, fechaVence: vence, montoMXN: aMXN(reserva, t.moneda, tc), extraSinInteresesMXN: aMXN(extra, t.moneda, tc) })
+
+    if (vence <= corte) {
+      const reserva = Math.max(0, t.minimo - pagado)
+      const extra = Math.max(0, (t.pagoSinIntereses ?? 0) - pagado - reserva)
+      if (reserva + extra > 0) {
+        apartados.push({ nombre: t.nombre, fechaVence: vence, montoMXN: aMXN(reserva, t.moneda, tc), extraSinInteresesMXN: aMXN(extra, t.moneda, tc) })
+      }
+    }
+
+    // Lo gastado con la tarjeta desde el corte aún no sale en el estado de cuenta: se aparta completo desde ya,
+    // sin importar cuándo vence. Lo pagado de más sobre el estado de cuenta lo va cubriendo.
+    // shortcut: un cargo anterior al corte se asume incluido en minimo/pagoSinIntereses; actualizar esos dos al recibir el estado de cuenta.
+    const cargos = movs
+      .filter(m => m.tipo === 'gasto' && m.deudaId === t.id && fechaLocal(m.ts) >= desde)
+      .reduce((s, m) => s + m.monto, 0)
+    const sobrante = Math.max(0, pagado - Math.max(t.minimo, t.pagoSinIntereses ?? 0))
+    const porCubrir = Math.max(0, cargos - sobrante)
+    if (porCubrir > 0) {
+      const siguienteCorte = pagoDelCorte(desde, t.diaCorte)
+      apartados.push({ nombre: `${t.nombre}: gastos desde el corte`, fechaVence: pagoDelCorte(siguienteCorte, t.diaPago), montoMXN: aMXN(porCubrir, t.moneda, tc), extraSinInteresesMXN: 0 })
+    }
   }
 
   const tengoHoy = cuentas.reduce((s, c) => s + c.saldoMXN, 0)

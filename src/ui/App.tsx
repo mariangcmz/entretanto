@@ -1,7 +1,11 @@
 import type { ComponentChildren } from 'preact'
 import { useState } from 'preact/hooks'
+import { registrar, reversar } from '../engine/bitacora'
 import { calcularCifras } from '../engine/cifras'
 import { formatear, formatearFecha } from '../engine/dinero'
+import type { Datos, Movimiento } from '../engine/tipos'
+import { Bitacora } from './Bitacora'
+import { Captura } from './Captura'
 import { datosFicticios } from './datosFicticios'
 
 const hoyISO = () => new Date().toLocaleDateString('en-CA') // YYYY-MM-DD en hora local
@@ -9,7 +13,10 @@ const hoyISO = () => new Date().toLocaleDateString('en-CA') // YYYY-MM-DD en hor
 type Cual = 'tengo' | 'dueno' | 'queda'
 
 export function App() {
-  const datos = datosFicticios
+  // shortcut: vive en memoria y se pierde al recargar; la Fase 3 lo guarda en Firestore.
+  const [datos, setDatos] = useState<Datos>(datosFicticios)
+  const alRegistrar = (m: Movimiento) => setDatos(d => ({ ...d, movimientos: registrar(d.movimientos, m) }))
+  const alDeshacer = (id: string) => setDatos(d => ({ ...d, movimientos: reversar(d.movimientos, id, Date.now()) }))
   const hoy = hoyISO()
   const c = calcularCifras(datos, hoy)
   const [abierta, setAbierta] = useState<Cual | null>(null)
@@ -24,7 +31,6 @@ export function App() {
 
       <Cifra id="tengo" titulo="Tengo hoy" monto={c.tengoHoy} abierta={abierta} alternar={alternar}>
         {c.desglose.cuentas.map(x => <Linea izq={x.nombre} der={formatear(x.saldoMXN)} />)}
-        {c.cargosAjenos > 0 && <p class="nota">Incluye {formatear(c.cargosAjenos)} en cargos de otras personas.</p>}
       </Cifra>
 
       <Cifra id="dueno" titulo="Esto ya tiene dueño" monto={c.tieneDueno} abierta={abierta} alternar={alternar}>
@@ -38,10 +44,14 @@ export function App() {
         {c.falta > 0
           ? <p class="nota">Te faltan {formatear(c.falta)} para cubrir lo apartado.</p>
           : <p class="nota">Lo que tienes hoy menos lo que ya tiene dueño.</p>}
+        {c.cargosAjenos > 0 && <p class="nota">Cargos de otras personas que te afectan: {formatear(c.cargosAjenos)}.</p>}
         {c.meQuedaSiPagoSinIntereses !== c.meQueda && (
           <p class="nota">Si pagas las tarjetas completas para no generar intereses: {formatear(c.meQuedaSiPagoSinIntereses)}.</p>
         )}
       </Cifra>
+
+      <Captura datos={datos} registrar={alRegistrar} />
+      <Bitacora movimientos={datos.movimientos} cuentas={[...datos.cuentas, ...datos.deudas]} deshacer={alDeshacer} />
     </main>
   )
 }

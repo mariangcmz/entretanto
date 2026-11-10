@@ -144,4 +144,24 @@ describe('tarjetas con su propio corte y fecha límite', () => {
     expect(c.tieneDueno).toBe(pesos(850))
     expect(c.meQuedaSiPagoSinIntereses).toBe(c.meQueda - pesos(900))
   })
+
+  it('un gasto con tarjeta no baja lo que tengo y se aparta completo desde ya', () => {
+    const d = base()
+    d.deudas.push(tarjeta('B', 28, 18)) // su pago vence después del ingreso: el estado de cuenta no se aparta
+    d.movimientos.push(mov({ cuentaId: undefined, deudaId: 'B', monto: pesos(250), ts: ts('2026-11-02') }))
+    d.movimientos.push(mov({ cuentaId: undefined, deudaId: 'B', monto: pesos(999), ts: ts('2026-10-20') })) // antes del corte: ya va en el estado de cuenta
+    const c = calcularCifras(d, HOY)
+    expect(c.tengoHoy).toBe(pesos(3000))
+    expect(c.tieneDueno).toBe(pesos(850 + 250))
+    expect(c.desglose.apartados.at(-1)).toEqual({ nombre: 'B: gastos desde el corte', fechaVence: '2026-12-18', montoMXN: pesos(250), extraSinInteresesMXN: 0 })
+  })
+
+  it('lo pagado de más sobre el estado de cuenta cubre los gastos nuevos; USD se convierte', () => {
+    const d = base()
+    d.deudas.push({ ...tarjeta('A', 3, 13), moneda: 'USD', minimo: pesos(30), pagoSinIntereses: pesos(100) })
+    d.movimientos.push(mov({ cuentaId: undefined, deudaId: 'A', moneda: 'USD', monto: pesos(50), ts: ts('2026-11-05') }))
+    expect(calcularCifras(d, HOY).tieneDueno).toBe(pesos(850 + 30 * 18 + 50 * 18))
+    d.movimientos.push(mov({ tipo: 'pago_deuda', cuentaId: undefined, deudaId: 'A', moneda: 'USD', monto: pesos(120), ts: ts('2026-11-06') }))
+    expect(calcularCifras(d, HOY).tieneDueno).toBe(pesos(850 + 30 * 18))
+  })
 })
