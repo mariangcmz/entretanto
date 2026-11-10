@@ -1,0 +1,57 @@
+:root {
+  --fondo: #f6f1e7;
+  --tarjeta: #fffdf8;
+  --texto: #1b1a17;
+  --suave: #5c564b;
+  --linea: #ddd4c3;
+  --acento: #1f5d4a;
+  --acento-texto: #f6f1e7;
+  --alerta: #a3321f;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: #1b1a17;
+    --tarjeta: #26241f;
+    --texto: #f3eee3;
+    --suave: #b9b2a3;
+    --linea: #3a372f;
+    --acento: #8fd3b6;
+    --acento-texto: #12201b;
+    --alerta: #ff9a85;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--texto);
+  font: 18px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+main { max-width: 30rem; margin: 0 auto; padding: 1.25rem 1rem 3rem; display: grid; gap: .75rem; }
+
+.ingreso { margin: 0 0 .5rem; color: var(--suave); }
+.ingreso strong { color: var(--texto); }
+
+.cifra { background: var(--tarjeta); border: 1px solid var(--linea); border-radius: 1rem; overflow: hidden; }
+.cifra button {
+  all: unset; box-sizing: border-box; width: 100%; min-height: 4.5rem; padding: 1rem 1.25rem;
+  display: grid; gap: .15rem; cursor: pointer;
+}
+.cifra button:focus-visible { outline: 3px solid var(--acento); outline-offset: -3px; }
+.titulo { font-size: 1rem; color: var(--suave); }
+.monto { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.negativo { color: var(--alerta); }
+
+.principal { background: var(--acento); border-color: var(--acento); color: var(--acento-texto); }
+.principal .titulo { color: inherit; opacity: .85; }
+.principal .monto { font-size: 2.75rem; }
+.principal .negativo { color: inherit; }
+
+.desglose { padding: 0 1.25rem 1rem; border-top: 1px solid var(--linea); }
+.principal .desglose { border-color: color-mix(in srgb, var(--acento-texto) 25%, transparent); }
+.linea { display: flex; justify-content: space-between; gap: 1rem; margin: .75rem 0 0; font-variant-numeric: tabular-nums; }
+.linea span:first-child::first-letter { text-transform: uppercase; }
+.nota { margin: .75rem 0 0; font-size: 1rem; }
