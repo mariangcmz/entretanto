@@ -81,6 +81,9 @@ export function App({ datos, repo }: { datos: Datos; repo: Repositorio }) {
 const objetivoAvalancha = (d: Datos) =>
   d.deudas.filter(t => t.tipo === 'tarjeta' && !t.pagoCompleto && t.saldoInicial > 0).sort((a, b) => b.tasaAnual - a.tasaAnual)[0]
 
+// Dólares con su etiqueta para que no se confundan con pesos: "USD 35.00".
+const enSuMoneda = (centavos: number, moneda: 'MXN' | 'USD') => moneda === 'USD' ? `USD ${(centavos / 100).toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : formatear(centavos)
+
 const corto = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }).replace('.', '')
 
 /** Cada tarjeta y préstamo con su siguiente fecha límite y qué toca hacer: siempre a la vista en el inicio. */
@@ -90,7 +93,7 @@ function PagosTarjeta(p: { pagos: LineaPago[]; hoy: string; abrir: () => void; o
   const detalle = (a: LineaPago) => {
     if (a.estado === 'actualizar') return `Cortó el ${corto(a.corte!)}: actualiza tu mínimo y pago sin intereses`
     if (a.estado === 'por_cortar') return `Corta el ${corto(a.corte!)}`
-    if (a.estado === 'cubierto') return a.montoMXN > 0 ? `Mínimo cubierto; sin intereses faltan ${formatear(a.montoMXN)}` : 'Pagado'
+    if (a.estado === 'cubierto') return a.monto > 0 ? `Mínimo cubierto; sin intereses faltan ${enSuMoneda(a.monto, a.moneda)}` : 'Pagado'
     return (a.fechaVence < p.hoy ? 'Ya venció' : 'Fecha límite') + (a.avalanchaMXN ? `, incluye ${formatear(a.avalanchaMXN)} extra (avalancha)` : '')
   }
   return (
@@ -108,7 +111,10 @@ function PagosTarjeta(p: { pagos: LineaPago[]; hoy: string; abrir: () => void; o
                   ? <button type="button" class="enlace fuerte" onClick={p.abrir}>{detalle(a)}</button>
                   : <span class={alerta ? 'mov-detalle vencido' : 'mov-detalle'}>{detalle(a)}</span>}
               </div>
-              <span class="mov-monto">{a.estado === 'pagar' || (a.estado === 'actualizar' && a.montoMXN > 0) ? formatear(a.montoMXN) : '—'}</span>
+              <span class="mov-monto">
+                {a.estado === 'pagar' || (a.estado === 'actualizar' && a.monto > 0) ? enSuMoneda(a.monto, a.moneda) : '—'}
+                {a.moneda === 'USD' && a.monto > 0 && (a.estado === 'pagar' || a.estado === 'actualizar') && <small>≈ {formatear(a.montoMXN)}</small>}
+              </span>
             </li>
           )
         })}

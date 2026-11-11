@@ -216,3 +216,4 @@ button.pill { border: 0; cursor: pointer; }
 /* Pagos de tarjeta en el inicio: misma columna de fecha que la bitácora */
 .pagos { margin-top: .75rem; }
 .mov-detalle.vencido { color: var(--alerta); font-weight: 600; }
+.mov-monto small { display: block; text-align: right; font-size: .85rem; font-weight: 400; font-stretch: 75%; color: var(--suave); }

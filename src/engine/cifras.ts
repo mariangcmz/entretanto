@@ -20,6 +20,8 @@ export interface LineaPago {
   fechaVence: string
   estado: 'pagar' | 'cubierto' | 'por_cortar' | 'actualizar'
   montoMXN: number // pagar/actualizar: lo apartado; cubierto: lo que falta para no generar intereses
+  moneda: Moneda // la de la deuda
+  monto: number // montoMXN en la moneda de la deuda, que es como se paga
   avalanchaMXN?: number
   corte?: string // por_cortar: cuándo corta; actualizar: cuándo cortó
 }
@@ -101,7 +103,7 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
         .reduce((s, m) => s + en(m, t.moneda), 0)
       const reserva = Math.max(0, t.minimo - pagado)
       if (reserva > 0) apartados.push({ nombre: t.nombre, fechaVence: vence, montoMXN: aMXN(reserva, t.moneda, tc), extraSinInteresesMXN: 0, deudaId: t.id })
-      pagos.push({ deudaId: t.id, nombre: t.nombre, fechaVence: vence, estado: reserva > 0 ? 'pagar' : 'cubierto', montoMXN: reserva > 0 ? aMXN(reserva, t.moneda, tc) : 0 })
+      pagos.push({ deudaId: t.id, nombre: t.nombre, fechaVence: vence, estado: reserva > 0 ? 'pagar' : 'cubierto', montoMXN: aMXN(reserva, t.moneda, tc), moneda: t.moneda, monto: reserva })
       continue
     }
     if (t.tipo !== 'tarjeta' || t.diaCorte === undefined || t.diaPago === undefined) continue
@@ -121,17 +123,17 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
       })
     }
     const siguienteCorte = pagoDelCorte(desde, t.diaCorte)
-    const linea = { deudaId: t.id, nombre: t.nombre, fechaVence: vence }
+    const linea = { deudaId: t.id, nombre: t.nombre, fechaVence: vence, moneda: t.moneda }
     if (desde > (t.actualizadaEl ?? CAPTURA_INICIAL)) {
       // Ya cortó después de la última captura: mínimo y pago sin intereses son del estado de cuenta anterior.
-      pagos.push({ ...linea, estado: 'actualizar', corte: desde, montoMXN: aMXN(reserva, t.moneda, tc) })
+      pagos.push({ ...linea, estado: 'actualizar', corte: desde, montoMXN: aMXN(reserva, t.moneda, tc), monto: reserva })
     } else if (reserva > 0) {
-      pagos.push({ ...linea, estado: 'pagar', montoMXN: aMXN(reserva, t.moneda, tc), avalanchaMXN: aMXN(Math.min(avalancha, reserva), t.moneda, tc) })
+      pagos.push({ ...linea, estado: 'pagar', montoMXN: aMXN(reserva, t.moneda, tc), monto: reserva, avalanchaMXN: aMXN(Math.min(avalancha, reserva), t.moneda, tc) })
     } else if (vence >= hoy) {
-      pagos.push({ ...linea, estado: 'cubierto', montoMXN: aMXN(extra, t.moneda, tc) })
+      pagos.push({ ...linea, estado: 'cubierto', montoMXN: aMXN(extra, t.moneda, tc), monto: extra })
     } else {
       // Este estado de cuenta ya quedó pagado y vencido: lo que sigue es el próximo corte.
-      pagos.push({ ...linea, estado: 'por_cortar', corte: siguienteCorte, fechaVence: pagoDelCorte(siguienteCorte, t.diaPago), montoMXN: 0 })
+      pagos.push({ ...linea, estado: 'por_cortar', corte: siguienteCorte, fechaVence: pagoDelCorte(siguienteCorte, t.diaPago), montoMXN: 0, monto: 0 })
     }
 
     // Lo gastado con la tarjeta desde el corte aún no sale en el estado de cuenta: se aparta completo desde ya,
