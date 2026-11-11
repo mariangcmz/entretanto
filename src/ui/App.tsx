@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact'
 import { useState } from 'preact/hooks'
 import type { Repositorio } from '../data/repositorio'
 import { reversar } from '../engine/bitacora'
-import { calcularCifras, type LineaApartado } from '../engine/cifras'
+import { calcularCifras, type LineaPago } from '../engine/cifras'
 import { formatear, formatearFecha } from '../engine/dinero'
 import type { Datos, Movimiento } from '../engine/tipos'
 import { Bitacora } from './Bitacora'
@@ -53,8 +53,8 @@ export function App({ datos, repo }: { datos: Datos; repo: Repositorio }) {
           {c.desglose.cuentas.map(x => <Linea izq={x.nombre} der={formatear(x.saldoMXN)} />)}
         </Cifra>
         <Cifra id="dueno" titulo="Ya tiene dueño" monto={c.tieneDueno} abierta={abierta} alternar={alternar} marca>
-          {c.desglose.apartados.length === 0 && <p class="nota">Nada apartado hasta tu próximo ingreso.</p>}
-          {c.desglose.apartados.map(a => (
+          {!c.desglose.apartados.some(a => a.montoMXN > 0) && <p class="nota">Nada apartado hasta tu próximo ingreso.</p>}
+          {c.desglose.apartados.filter(a => a.montoMXN > 0).map(a => (
             <Linea izq={a.nombre} sub={`${a.fechaVence < hoy ? 'Venció' : 'Vence'} el ${formatearFecha(a.fechaVence).replace(',', '')}`} der={formatear(a.montoMXN)} />
           ))}
         </Cifra>
@@ -66,7 +66,7 @@ export function App({ datos, repo }: { datos: Datos; repo: Repositorio }) {
         )}
       </section>
 
-      <PagosTarjeta apartados={c.desglose.apartados} hoy={hoy} objetivo={datos.config.presupuestoDeuda ? undefined : objetivoAvalancha(datos)} />
+      <PagosTarjeta pagos={c.pagos} hoy={hoy} abrir={() => setAjustes(true)} objetivo={datos.config.presupuestoDeuda ? undefined : objetivoAvalancha(datos)} />
 
       {vacia
         ? <button type="button" class="registrar" onClick={() => setAjustes(true)}>Agrega tus cuentas y tarjetas para empezar</button>
@@ -81,28 +81,37 @@ export function App({ datos, repo }: { datos: Datos; repo: Repositorio }) {
 const objetivoAvalancha = (d: Datos) =>
   d.deudas.filter(t => t.tipo === 'tarjeta' && !t.pagoCompleto && t.saldoInicial > 0).sort((a, b) => b.tasaAnual - a.tasaAnual)[0]
 
-/** Lo que toca pagar a cada tarjeta y préstamo, por fecha límite: siempre a la vista en el inicio. */
-function PagosTarjeta(p: { apartados: LineaApartado[]; hoy: string; objetivo?: { nombre: string; tasaAnual: number } }) {
-  const pagos = p.apartados.filter(a => a.deudaId).sort((a, b) => a.fechaVence.localeCompare(b.fechaVence))
-  if (pagos.length === 0) return null
+const corto = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }).replace('.', '')
+
+/** Cada tarjeta y préstamo con su siguiente fecha límite y qué toca hacer: siempre a la vista en el inicio. */
+function PagosTarjeta(p: { pagos: LineaPago[]; hoy: string; abrir: () => void; objetivo?: { nombre: string; tasaAnual: number } }) {
+  if (p.pagos.length === 0) return null
   const f = (iso: string) => new Date(`${iso}T12:00:00`)
+  const detalle = (a: LineaPago) => {
+    if (a.estado === 'actualizar') return `Cortó el ${corto(a.corte!)}: actualiza tu mínimo y pago sin intereses`
+    if (a.estado === 'por_cortar') return `Corta el ${corto(a.corte!)}`
+    if (a.estado === 'cubierto') return a.montoMXN > 0 ? `Mínimo cubierto; sin intereses faltan ${formatear(a.montoMXN)}` : 'Pagado'
+    return (a.fechaVence < p.hoy ? 'Ya venció' : 'Fecha límite') + (a.avalanchaMXN ? `, incluye ${formatear(a.avalanchaMXN)} extra (avalancha)` : '')
+  }
   return (
     <section class="pagos" aria-labelledby="t-pagos">
       <h2 id="t-pagos">Próximos pagos</h2>
       <ol>
-        {pagos.map(a => (
-          <li key={a.deudaId} class="mov">
-            <span class="mov-fecha"><b>{f(a.fechaVence).getDate()}</b>{f(a.fechaVence).toLocaleDateString('es-MX', { month: 'short' }).replace('.', '')}</span>
-            <div class="mov-texto">
-              <span class="mov-nota">{a.nombre}</span>
-              <span class={a.fechaVence < p.hoy ? 'mov-detalle vencido' : 'mov-detalle'}>
-                {a.fechaVence < p.hoy ? 'Ya venció' : 'Fecha límite'}
-                {a.avalanchaMXN ? `, incluye ${formatear(a.avalanchaMXN)} extra (avalancha)` : ''}
-              </span>
-            </div>
-            <span class="mov-monto">{formatear(a.montoMXN)}</span>
-          </li>
-        ))}
+        {p.pagos.map(a => {
+          const alerta = a.estado === 'actualizar' || (a.estado === 'pagar' && a.fechaVence < p.hoy)
+          return (
+            <li key={a.deudaId} class={a.estado === 'cubierto' || a.estado === 'por_cortar' ? 'mov apagado' : 'mov'}>
+              <span class="mov-fecha"><b>{f(a.fechaVence).getDate()}</b>{f(a.fechaVence).toLocaleDateString('es-MX', { month: 'short' }).replace('.', '')}</span>
+              <div class="mov-texto">
+                <span class="mov-nota">{a.nombre}</span>
+                {a.estado === 'actualizar'
+                  ? <button type="button" class="enlace fuerte" onClick={p.abrir}>{detalle(a)}</button>
+                  : <span class={alerta ? 'mov-detalle vencido' : 'mov-detalle'}>{detalle(a)}</span>}
+              </div>
+              <span class="mov-monto">{a.estado === 'pagar' || (a.estado === 'actualizar' && a.montoMXN > 0) ? formatear(a.montoMXN) : '—'}</span>
+            </li>
+          )
+        })}
       </ol>
       {p.objetivo && <p class="nota">Lo que puedas meter de más, a {p.objetivo.nombre}: tiene la tasa más alta ({p.objetivo.tasaAnual}%).</p>}
     </section>

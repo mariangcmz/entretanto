@@ -13,6 +13,20 @@ export interface LineaApartado {
   avalanchaMXN?: number // parte del monto que la avalancha pone encima del mínimo
 }
 
+/** Cómo va cada deuda en su siguiente fecha límite, para la lista de Próximos pagos. */
+export interface LineaPago {
+  deudaId: string
+  nombre: string
+  fechaVence: string
+  estado: 'pagar' | 'cubierto' | 'por_cortar' | 'actualizar'
+  montoMXN: number // pagar/actualizar: lo apartado; cubierto: lo que falta para no generar intereses
+  avalanchaMXN?: number
+  corte?: string // por_cortar: cuándo corta; actualizar: cuándo cortó
+}
+
+// Las deudas capturadas antes de guardar `actualizadaEl` se dieron de alta este día (salió la Fase 3).
+const CAPTURA_INICIAL = '2026-11-11'
+
 export interface Cifras {
   tengoHoy: number
   tieneDueno: number
@@ -23,6 +37,7 @@ export interface Cifras {
   definitiva: boolean // false si falta la fecha del próximo ingreso
   proximoCobro?: { fecha: string; nombre?: string; montoMXN?: number }
   desglose: { cuentas: LineaCuenta[]; apartados: LineaApartado[] }
+  pagos: LineaPago[]
 }
 
 const delta = (m: Movimiento) =>
@@ -73,6 +88,7 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
   // Cada tarjeta aparta solita el pago de su último corte, con su propio día de corte y de pago, aunque venza
   // después del próximo ingreso: ese dinero ya se debe. Cuánto, lo dice el plan avalancha; lo pagado desde el corte se descuenta.
   const plan = planAvalancha(d.deudas, d.config.presupuestoDeuda, tc)
+  const pagos: LineaPago[] = []
   for (const t of d.deudas) {
     // Préstamo con pago fijo al mes: aparta siempre su siguiente pago (como el estado de cuenta de una tarjeta,
     // ya se debe), descontando lo pagado desde el anterior.
@@ -84,6 +100,7 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
         .reduce((s, m) => s + m.monto, 0)
       const reserva = Math.max(0, t.minimo - pagado)
       if (reserva > 0) apartados.push({ nombre: t.nombre, fechaVence: vence, montoMXN: aMXN(reserva, t.moneda, tc), extraSinInteresesMXN: 0, deudaId: t.id })
+      pagos.push({ deudaId: t.id, nombre: t.nombre, fechaVence: vence, estado: reserva > 0 ? 'pagar' : 'cubierto', montoMXN: reserva > 0 ? aMXN(reserva, t.moneda, tc) : 0 })
       continue
     }
     if (t.tipo !== 'tarjeta' || t.diaCorte === undefined || t.diaPago === undefined) continue
@@ -102,6 +119,19 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
         deudaId: t.id, avalanchaMXN: aMXN(Math.min(avalancha, reserva), t.moneda, tc),
       })
     }
+    const siguienteCorte = pagoDelCorte(desde, t.diaCorte)
+    const linea = { deudaId: t.id, nombre: t.nombre, fechaVence: vence }
+    if (desde > (t.actualizadaEl ?? CAPTURA_INICIAL)) {
+      // Ya cortó después de la última captura: mínimo y pago sin intereses son del estado de cuenta anterior.
+      pagos.push({ ...linea, estado: 'actualizar', corte: desde, montoMXN: aMXN(reserva, t.moneda, tc) })
+    } else if (reserva > 0) {
+      pagos.push({ ...linea, estado: 'pagar', montoMXN: aMXN(reserva, t.moneda, tc), avalanchaMXN: aMXN(Math.min(avalancha, reserva), t.moneda, tc) })
+    } else if (vence >= hoy) {
+      pagos.push({ ...linea, estado: 'cubierto', montoMXN: aMXN(extra, t.moneda, tc) })
+    } else {
+      // Este estado de cuenta ya quedó pagado y vencido: lo que sigue es el próximo corte.
+      pagos.push({ ...linea, estado: 'por_cortar', corte: siguienteCorte, fechaVence: pagoDelCorte(siguienteCorte, t.diaPago), montoMXN: 0 })
+    }
 
     // Lo gastado con la tarjeta desde el corte aún no sale en el estado de cuenta: se aparta completo desde ya,
     // sin importar cuándo vence. Lo pagado de más sobre el estado de cuenta lo va cubriendo.
@@ -112,7 +142,6 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
     const sobrante = Math.max(0, pagado - Math.max(pago, t.pagoSinIntereses ?? 0))
     const porCubrir = Math.max(0, cargos - sobrante)
     if (porCubrir > 0) {
-      const siguienteCorte = pagoDelCorte(desde, t.diaCorte)
       apartados.push({ nombre: `${t.nombre}: gastos desde el corte`, fechaVence: pagoDelCorte(siguienteCorte, t.diaPago), montoMXN: aMXN(porCubrir, t.moneda, tc), extraSinInteresesMXN: 0 })
     }
   }
@@ -134,5 +163,6 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
     definitiva: cobro !== undefined,
     proximoCobro: cobro,
     desglose: { cuentas, apartados },
+    pagos: pagos.sort((a, b) => a.fechaVence.localeCompare(b.fechaVence)),
   }
 }

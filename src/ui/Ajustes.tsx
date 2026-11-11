@@ -151,7 +151,8 @@ const TITULOS: Record<Catalogo, [string, string]> = {
 function Lista(p: { cat: Catalogo; datos: Datos; repo: Repositorio }) {
   const items = (p.datos[p.cat] ?? []) as unknown as (Item & { id: string; nombre: string; moneda: 'MXN' | 'USD' })[]
   const [titulo, agregar] = TITULOS[p.cat]
-  const guardar = (i: Item) => p.repo.guardar(p.cat, i as never)
+  // Al guardar una deuda se anota el día: si después corta, la app sabe que sus cifras son del estado anterior.
+  const guardar = (i: Item) => p.repo.guardar(p.cat, (p.cat === 'deudas' ? { ...i, actualizadaEl: new Date().toLocaleDateString('en-CA') } : i) as never)
   // Lo que ya aparece en la bitácora no se quita: dejaría movimientos sin su cuenta.
   const enUso = new Set(p.datos.movimientos.flatMap(m => [m.cuentaId, m.deudaId, m.compromisoId]))
   const monto = (i: Item & { moneda: 'MXN' | 'USD' }) => {

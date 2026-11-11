@@ -163,6 +163,23 @@ describe('tarjetas con su propio corte y fecha límite', () => {
     expect(c.meQuedaSiPagoSinIntereses).toBe(c.meQueda - pesos(900 * 3))
   })
 
+  it('próximos pagos: cada tarjeta dice si toca pagar, ya cubrió, espera su corte o ya cortó y hay que actualizarla', () => {
+    const d = base()
+    d.deudas.push(
+      tarjeta('pagar', 3, 13),
+      { ...tarjeta('cubierta', 3, 13), minimo: 0 }, // el mínimo ya se pagó
+      { ...tarjeta('esperando', 20, 8), minimo: 0, pagoSinIntereses: 0 }, // pagada y vencida: sigue el corte del 20
+      { ...tarjeta('vieja', 3, 13), actualizadaEl: '2026-11-01' }, // cortó el 3, se capturó el 1
+    )
+    const por = Object.fromEntries(calcularCifras(d, HOY).pagos.map(p => [p.nombre, [p.estado, p.fechaVence, p.montoMXN, p.corte]]))
+    expect(por).toEqual({
+      pagar: ['pagar', '2026-11-13', pesos(300), undefined],
+      cubierta: ['cubierto', '2026-11-13', pesos(1200), undefined],
+      esperando: ['por_cortar', '2026-12-08', 0, '2026-11-20'],
+      vieja: ['actualizar', '2026-11-13', pesos(300), '2026-11-03'],
+    })
+  })
+
   it('un préstamo aparta siempre su siguiente pago fijo; lo pagado desde el anterior lo descuenta', () => {
     const d = base()
     d.deudas.push({ id: 'bravo', nombre: 'Bravo', tipo: 'prestamo', moneda: 'MXN', saldoInicial: pesos(50000), tasaAnual: 46, minimo: pesos(6316), pagoSinIntereses: pesos(6316), diaPago: 3 })

@@ -29,6 +29,7 @@ export interface Deuda {
   diaPago?: number // 1-31, fecha límite de pago
   ordenPlan?: number // desempata la avalancha entre tasas iguales
   pagoCompleto?: boolean // la pago completa cada mes: sale de la avalancha y aparta su pago sin intereses
+  actualizadaEl?: string // última vez que se capturaron mínimo y pago sin intereses; si ya cortó después, están viejos
 }
 
 /** Una fuente de dinero que entra: la pensión cada mes, Kanguro cada quincena, un cobro de Natura una vez. */
