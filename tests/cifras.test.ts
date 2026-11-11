@@ -63,14 +63,15 @@ describe('reglas de las cifras', () => {
     expect(calcularCifras(d, HOY).tengoHoy).toBe(pesos(3180))
   })
 
-  it('no aparta lo que vence después del próximo ingreso; sí lo vencido', () => {
-    const d = base()
+  it('aparta pagos fijos hasta 7 días después del próximo ingreso y lo vencido; lo más lejano no', () => {
+    const d = base() // cobro el 15: entra hasta el 22
     d.compromisos.push(
-      { id: 'luz', nombre: 'Luz', monto: pesos(400), moneda: 'MXN', fechaVence: '2026-11-20', estado: 'pendiente' },
+      { id: 'luz', nombre: 'Luz', monto: pesos(400), moneda: 'MXN', fechaVence: '2026-11-23', estado: 'pendiente' },
+      { id: 'nat', nombre: 'Natura', monto: pesos(50), moneda: 'MXN', fechaVence: '2026-11-22', estado: 'pendiente' },
       { id: 'agua', nombre: 'Agua', monto: pesos(100), moneda: 'MXN', fechaVence: '2026-11-01', estado: 'pendiente' },
       { id: 'tel', nombre: 'Teléfono', monto: pesos(200), moneda: 'MXN', fechaVence: '2026-11-15', estado: 'pendiente' },
     )
-    expect(calcularCifras(d, HOY).tieneDueno).toBe(pesos(1150))
+    expect(calcularCifras(d, HOY).tieneDueno).toBe(pesos(1200))
   })
 
   it('sin fecha de próximo ingreso la cifra no es definitiva', () => {
@@ -134,10 +135,14 @@ describe('tarjetas con su propio corte y fecha límite', () => {
     expect(c.meQuedaSiPagoSinIntereses).toBe(c.meQueda - pesos(900 * 3))
   })
 
-  it('un pago fijo que vence después del próximo ingreso no se aparta todavía', () => {
+  it('un préstamo aparta siempre su siguiente pago fijo; lo pagado desde el anterior lo descuenta', () => {
     const d = base()
-    d.compromisos.push({ id: 'nat', nombre: 'Natura', monto: pesos(500), moneda: 'MXN', fechaVence: '2026-11-17', estado: 'pendiente' })
-    expect(calcularCifras(d, HOY).tieneDueno).toBe(pesos(850))
+    d.deudas.push({ id: 'bravo', nombre: 'Bravo', tipo: 'prestamo', moneda: 'MXN', saldoInicial: pesos(50000), tasaAnual: 46, minimo: pesos(6316), pagoSinIntereses: pesos(6316), diaPago: 3 })
+    const c = calcularCifras(d, HOY)
+    expect(c.desglose.apartados.at(-1)).toMatchObject({ nombre: 'Bravo', fechaVence: '2026-12-03', montoMXN: pesos(6316), deudaId: 'bravo' })
+    d.movimientos.push(mov({ tipo: 'pago_deuda', deudaId: 'bravo', monto: pesos(6316), ts: ts('2026-11-03') })) // el de noviembre: no cuenta
+    d.movimientos.push(mov({ tipo: 'pago_deuda', deudaId: 'bravo', monto: pesos(1000), ts: ts('2026-11-09') }))
+    expect(calcularCifras(d, HOY).tieneDueno).toBe(pesos(850 + 5316))
   })
 
   it('avalancha: lo que sobra del presupuesto va a la tasa más alta; la que se paga completa aparta su pago sin intereses', () => {

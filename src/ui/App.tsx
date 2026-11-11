@@ -66,7 +66,7 @@ export function App({ datos, repo }: { datos: Datos; repo: Repositorio }) {
         )}
       </section>
 
-      <PagosTarjeta apartados={c.desglose.apartados} hoy={hoy} sinPresupuesto={!datos.config.presupuestoDeuda} />
+      <PagosTarjeta apartados={c.desglose.apartados} hoy={hoy} objetivo={datos.config.presupuestoDeuda ? undefined : objetivoAvalancha(datos)} />
 
       {vacia
         ? <button type="button" class="registrar" onClick={() => setAjustes(true)}>Agrega tus cuentas y tarjetas para empezar</button>
@@ -77,14 +77,18 @@ export function App({ datos, repo }: { datos: Datos; repo: Repositorio }) {
   )
 }
 
-/** Lo que toca pagar a cada tarjeta, por fecha límite: siempre a la vista en el inicio. */
-function PagosTarjeta(p: { apartados: LineaApartado[]; hoy: string; sinPresupuesto: boolean }) {
+/** Sin presupuesto fijo, lo que se pueda meter de más va a la tarjeta con la tasa más alta (avalancha). */
+const objetivoAvalancha = (d: Datos) =>
+  d.deudas.filter(t => t.tipo === 'tarjeta' && !t.pagoCompleto && t.saldoInicial > 0).sort((a, b) => b.tasaAnual - a.tasaAnual)[0]
+
+/** Lo que toca pagar a cada tarjeta y préstamo, por fecha límite: siempre a la vista en el inicio. */
+function PagosTarjeta(p: { apartados: LineaApartado[]; hoy: string; objetivo?: { nombre: string; tasaAnual: number } }) {
   const pagos = p.apartados.filter(a => a.deudaId).sort((a, b) => a.fechaVence.localeCompare(b.fechaVence))
   if (pagos.length === 0) return null
   const f = (iso: string) => new Date(`${iso}T12:00:00`)
   return (
     <section class="pagos" aria-labelledby="t-pagos">
-      <h2 id="t-pagos">Pagos de tarjeta</h2>
+      <h2 id="t-pagos">Próximos pagos</h2>
       <ol>
         {pagos.map(a => (
           <li key={a.deudaId} class="mov">
@@ -100,7 +104,7 @@ function PagosTarjeta(p: { apartados: LineaApartado[]; hoy: string; sinPresupues
           </li>
         ))}
       </ol>
-      {p.sinPresupuesto && <p class="nota">Pon en tus datos cuánto destinas a deudas cada mes y la avalancha reparte lo que sobre de los mínimos.</p>}
+      {p.objetivo && <p class="nota">Lo que puedas meter de más, a {p.objetivo.nombre}: tiene la tasa más alta ({p.objetivo.tasaAnual}%).</p>}
     </section>
   )
 }

@@ -1,6 +1,6 @@
 import { aMXN } from './dinero'
 import { planAvalancha } from './deudas'
-import { fechaLocal, pagoDelCorte, ultimoCorte } from './fechas'
+import { fechaLocal, mesAntes, pagoDelCorte, proximoPago, sumarDias, ultimoCorte } from './fechas'
 import type { Datos, Movimiento } from './tipos'
 
 export interface LineaCuenta { nombre: string; saldoMXN: number }
@@ -44,7 +44,9 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
   })
 
   const cubiertos = new Set(movs.filter(m => m.tipo === 'pago_deuda').map(m => m.compromisoId))
-  const corte = d.config.fechaProximoIngreso ?? hoy
+  // Pagos fijos: lo que vence hasta 7 días después del próximo cobro. Lo que vence justo tras cobrar
+  // no da tiempo de juntarlo con ese ingreso, así que se aparta desde ya.
+  const corte = sumarDias(d.config.fechaProximoIngreso ?? hoy, 7)
   const vistos = new Set<string>()
   const apartados: LineaApartado[] = []
   for (const c of d.compromisos) {
@@ -59,6 +61,18 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
   // después del próximo ingreso: ese dinero ya se debe. Cuánto, lo dice el plan avalancha; lo pagado desde el corte se descuenta.
   const plan = planAvalancha(d.deudas, d.config.presupuestoDeuda, tc)
   for (const t of d.deudas) {
+    // Préstamo con pago fijo al mes: aparta siempre su siguiente pago (como el estado de cuenta de una tarjeta,
+    // ya se debe), descontando lo pagado desde el anterior.
+    if (t.tipo === 'prestamo' && t.diaPago !== undefined) {
+      const vence = proximoPago(hoy, t.diaPago)
+      const desde = mesAntes(vence, t.diaPago)
+      const pagado = movs
+        .filter(m => m.tipo === 'pago_deuda' && m.deudaId === t.id && fechaLocal(m.ts) > desde)
+        .reduce((s, m) => s + m.monto, 0)
+      const reserva = Math.max(0, t.minimo - pagado)
+      if (reserva > 0) apartados.push({ nombre: t.nombre, fechaVence: vence, montoMXN: aMXN(reserva, t.moneda, tc), extraSinInteresesMXN: 0, deudaId: t.id })
+      continue
+    }
     if (t.tipo !== 'tarjeta' || t.diaCorte === undefined || t.diaPago === undefined) continue
     const desde = ultimoCorte(hoy, t.diaCorte)
     const vence = pagoDelCorte(desde, t.diaPago)
