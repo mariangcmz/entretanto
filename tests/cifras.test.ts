@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { calcularCifras, proximoCobro } from '../src/engine/cifras'
 import { pesos } from '../src/engine/dinero'
-import { pagoDelCorte, ultimoCorte } from '../src/engine/fechas'
+import { pagoDelCorte, proximaFechaIngreso, ultimoCorte } from '../src/engine/fechas'
 import type { Datos, Movimiento } from '../src/engine/tipos'
 
 const HOY = '2026-11-10'
@@ -87,6 +87,19 @@ describe('reglas de las cifras', () => {
     // con ingresos, la fecha suelta de la config ya no manda: aparta pagos fijos hasta el 10 de dic
     d.compromisos.push({ id: 'luz', nombre: 'Luz', monto: pesos(400), moneda: 'MXN', fechaVence: '2026-12-08', estado: 'pendiente' })
     expect(calcularCifras(d, HOY).tieneDueno).toBe(pesos(850 + 400))
+  })
+
+  it('cada ingreso calcula su siguiente cobro según su frecuencia', () => {
+    expect(proximaFechaIngreso({ frecuencia: 'mensual', diaCobro: 3 }, HOY)).toBe('2026-12-03')
+    expect(proximaFechaIngreso({ frecuencia: 'quincenal' }, HOY)).toBe('2026-11-15') // 15 y último por omisión
+    expect(proximaFechaIngreso({ frecuencia: 'quincenal' }, '2026-11-16')).toBe('2026-11-30')
+    expect(proximaFechaIngreso({ frecuencia: 'quincenal', diaCobro: 1, diaCobro2: 16 }, '2026-11-17')).toBe('2026-12-01')
+    expect(proximaFechaIngreso({ frecuencia: 'quincenal' }, '2027-02-16')).toBe('2027-02-28')
+    expect(proximaFechaIngreso({ frecuencia: 'semanal', fecha: '2026-11-06' }, HOY)).toBe('2026-11-13')
+    expect(proximaFechaIngreso({ frecuencia: 'semanal', fecha: '2026-11-03' }, HOY)).toBe('2026-11-10')
+    expect(proximaFechaIngreso({ frecuencia: 'semanal', fecha: '2026-11-20' }, HOY)).toBe('2026-11-20')
+    expect(proximaFechaIngreso({ frecuencia: 'una_vez', fecha: '2026-11-01' }, HOY)).toBeUndefined()
+    expect(proximaFechaIngreso({ diaCobro: 3 }, HOY)).toBe('2026-12-03') // los guardados antes de la frecuencia
   })
 
   it('sin fecha de próximo ingreso la cifra no es definitiva', () => {

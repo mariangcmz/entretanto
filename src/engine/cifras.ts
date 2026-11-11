@@ -1,6 +1,6 @@
 import { aMXN } from './dinero'
 import { planAvalancha } from './deudas'
-import { fechaLocal, mesAntes, pagoDelCorte, proximoPago, sumarDias, ultimoCorte } from './fechas'
+import { fechaLocal, mesAntes, pagoDelCorte, proximaFechaIngreso, proximoPago, sumarDias, ultimoCorte } from './fechas'
 import type { Datos, Movimiento } from './tipos'
 
 export interface LineaCuenta { nombre: string; saldoMXN: number }
@@ -37,8 +37,8 @@ export function vigentes(movs: Movimiento[]): Movimiento[] {
 /** El ingreso más cercano en o después de hoy entre todas las fuentes; si no hay, la fecha suelta de la config. */
 export function proximoCobro(d: Datos, hoy: string): Cifras['proximoCobro'] {
   const fechas = (d.ingresos ?? []).flatMap(i => {
-    const f = i.diaCobro !== undefined ? proximoPago(hoy, i.diaCobro) : i.fecha
-    return f && f >= hoy ? [{ fecha: f, nombre: i.nombre, montoMXN: i.monto === undefined ? undefined : aMXN(i.monto, i.moneda, d.config.tipoCambioUSD) }] : []
+    const f = proximaFechaIngreso(i, hoy)
+    return f ? [{ fecha: f, nombre: i.nombre, montoMXN: i.monto === undefined ? undefined : aMXN(i.monto, i.moneda, d.config.tipoCambioUSD) }] : []
   }).sort((a, b) => a.fecha.localeCompare(b.fecha))
   if (fechas.length) return fechas[0]
   const f = d.config.fechaProximoIngreso

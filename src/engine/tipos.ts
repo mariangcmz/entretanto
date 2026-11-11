@@ -31,14 +31,16 @@ export interface Deuda {
   pagoCompleto?: boolean // la pago completa cada mes: sale de la avalancha y aparta su pago sin intereses
 }
 
-/** Una fuente de dinero que entra: la pensión cada mes en su día, o un cobro de Natura con su fecha. */
+/** Una fuente de dinero que entra: la pensión cada mes, Kanguro cada quincena, un cobro de Natura una vez. */
 export interface Ingreso {
   id: string
   nombre: string
-  monto?: number // lo que esperas; puede variar
+  monto?: number // lo que esperas en cada cobro; puede variar
   moneda: Moneda
-  diaCobro?: number // 1-31 si cae cada mes el mismo día
-  fecha?: string // si es una sola vez
+  frecuencia?: 'semanal' | 'quincenal' | 'mensual' | 'una_vez' // sin ella: mensual si hay diaCobro, si no una vez
+  diaCobro?: number // 1-31: el día de cada mes, o el primero de la quincena
+  diaCobro2?: number // 1-31: el segundo de la quincena (si el mes es más corto, su último día)
+  fecha?: string // una vez: ese día; semanal: cualquier día en que te pagaron o te van a pagar
 }
 
 export interface Compromiso {

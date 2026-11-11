@@ -14,11 +14,14 @@ type Campo = {
   opciones?: [string, string][]
   opcional?: boolean
   ayuda?: string
+  si?: (v: Record<string, string>) => boolean // solo se muestra (y se guarda) cuando se cumple
+  defecto?: (item: Item) => unknown // valor inicial si el item no lo trae
   min?: number
   max?: number
 }
 type Item = Record<string, unknown>
 
+const FRECUENCIAS: [string, string][] = [['mensual', 'Cada mes'], ['quincenal', 'Cada quincena'], ['semanal', 'Cada semana'], ['una_vez', 'Una sola vez']]
 const MONEDA: Campo = { k: 'moneda', etiqueta: 'Moneda', tipo: 'opciones', opciones: [['MXN', 'Pesos'], ['USD', 'Dólares']] }
 const DIA = (k: string, etiqueta: string): Campo => ({ k, etiqueta, tipo: 'numero', opcional: true, min: 1, max: 31, ayuda: 'Día del mes, del 1 al 31' })
 
@@ -45,8 +48,15 @@ const CAMPOS: Record<Catalogo, Campo[]> = {
     { k: 'nombre', etiqueta: 'Nombre', tipo: 'texto' },
     { k: 'monto', etiqueta: 'Cuánto esperas', tipo: 'dinero', opcional: true, ayuda: 'Si varía, déjalo vacío o pon lo mínimo que esperas' },
     MONEDA,
-    { ...DIA('diaCobro', 'Día de cobro cada mes'), ayuda: 'Si cae el mismo día cada mes, como la pensión' },
-    { k: 'fecha', etiqueta: 'O fecha de un cobro', tipo: 'fecha', opcional: true, ayuda: 'Si es una sola vez, como un cobro de Natura' },
+    {
+      k: 'frecuencia', etiqueta: '¿Cada cuánto te pagan?', tipo: 'opciones', opciones: FRECUENCIAS,
+      defecto: i => i.diaCobro !== undefined ? 'mensual' : 'una_vez', // los guardados antes de la frecuencia
+    },
+    { ...DIA('diaCobro', 'Día de cobro'), ayuda: 'El mismo día cada mes', si: v => v.frecuencia === 'mensual' },
+    { ...DIA('diaCobro', 'Primer día de la quincena'), ayuda: 'Si lo dejas vacío, el 15', si: v => v.frecuencia === 'quincenal' },
+    { ...DIA('diaCobro2', 'Segundo día de la quincena'), ayuda: 'Si lo dejas vacío, el último del mes', si: v => v.frecuencia === 'quincenal' },
+    { k: 'fecha', etiqueta: 'Fecha del cobro', tipo: 'fecha', opcional: true, ayuda: 'Si ya sabes cuándo; si no, anótalo como ingreso cuando te paguen', si: v => v.frecuencia === 'una_vez' },
+    { k: 'fecha', etiqueta: 'Un día en que te pagan', tipo: 'fecha', ayuda: 'De ahí se cuenta cada 7 días', si: v => v.frecuencia === 'semanal' },
   ],
   compromisos: [
     { k: 'nombre', etiqueta: 'Nombre', tipo: 'texto' },
@@ -65,7 +75,7 @@ const NUEVO: Record<Catalogo, Item> = {
   cuentas: { tipo: 'debito', moneda: 'MXN' },
   deudas: { tipo: 'tarjeta', moneda: 'MXN' },
   compromisos: { moneda: 'MXN', estado: 'pendiente' },
-  ingresos: { moneda: 'MXN' },
+  ingresos: { moneda: 'MXN', frecuencia: 'mensual' },
 }
 
 const SINO: [string, string][] = [['', 'No'], ['si', 'Sí']]
@@ -80,14 +90,17 @@ function deTexto(c: Campo, s: string): unknown {
 }
 
 function Editor(p: { campos: Campo[]; item: Item; guardar: (i: Item) => Promise<void>; boton: string }) {
-  const [valores, setValores] = useState(() => Object.fromEntries(p.campos.map(c => [c.k, aTexto(c, p.item[c.k])])))
+  const [valores, setValores] = useState(() => Object.fromEntries(p.campos.map(c => [c.k, aTexto(c, p.item[c.k] ?? c.defecto?.(p.item))])))
+  const visibles = p.campos.filter(c => !c.si || c.si(valores))
+  const ocultos = p.campos.filter(c => !visibles.some(v => v.k === c.k)).map(c => c.k)
   const [aviso, setAviso] = useState('')
   const pon = (k: string, v: string) => { setValores(x => ({ ...x, [k]: v })); setAviso('') }
 
   function enviar(e: Event) {
     e.preventDefault()
     const item: Item = { ...p.item }
-    for (const c of p.campos) {
+    for (const k of ocultos) delete item[k] // lo de otra frecuencia no se guarda
+    for (const c of visibles) {
       const v = deTexto(c, valores[c.k] ?? '')
       if (typeof v === 'number' && (Number.isNaN(v) || (c.min !== undefined && v < c.min) || (c.max !== undefined && v > c.max)))
         return setAviso(`Revisa «${c.etiqueta}»${c.ayuda ? `: ${c.ayuda.toLowerCase()}` : ''}.`)
@@ -102,7 +115,7 @@ function Editor(p: { campos: Campo[]; item: Item; guardar: (i: Item) => Promise<
 
   return (
     <form class="editor" onSubmit={enviar}>
-      {p.campos.map(c => {
+      {visibles.map(c => {
         const id = `${String(p.item.id ?? 'nuevo')}-${c.k}`
         return (
           <label key={c.k} class="campo" for={id}>
@@ -151,7 +164,10 @@ function Lista(p: { cat: Catalogo; datos: Datos; repo: Repositorio }) {
       <h2 id={`t-${p.cat}`}>{titulo}</h2>
       {items.map(i => (
         <details key={i.id} class="ajuste-item">
-          <summary><span>{i.nombre}</span><span>{monto(i)}</span></summary>
+          <summary>
+            <span>{i.nombre}{p.cat === 'ingresos' && <small> · {FRECUENCIAS.find(f => f[0] === (i.frecuencia ?? (i.diaCobro !== undefined ? 'mensual' : 'una_vez')))?.[1].toLowerCase()}</small>}</span>
+            <span>{monto(i)}</span>
+          </summary>
           <Editor campos={CAMPOS[p.cat]} item={i} guardar={guardar} boton="Guardar cambios" />
           {enUso.has(i.id)
             ? <p class="nota">Tiene movimientos en la bitácora, así que se queda.</p>

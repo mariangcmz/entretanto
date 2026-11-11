@@ -37,6 +37,21 @@ export function mesAntes(iso: string, dia: number): string {
   return fecha(a, m - 1, dia)
 }
 
+/** El siguiente cobro de un ingreso en o después de hoy, según su frecuencia. */
+export function proximaFechaIngreso(i: { frecuencia?: string; diaCobro?: number; diaCobro2?: number; fecha?: string }, hoy: string): string | undefined {
+  const frecuencia = i.frecuencia ?? (i.diaCobro !== undefined ? 'mensual' : 'una_vez')
+  if (frecuencia === 'mensual') return i.diaCobro === undefined ? undefined : proximoPago(hoy, i.diaCobro)
+  if (frecuencia === 'quincenal') {
+    const [a, b] = [proximoPago(hoy, i.diaCobro ?? 15), proximoPago(hoy, i.diaCobro2 ?? 31)]
+    return a < b ? a : b
+  }
+  if (!i.fecha) return undefined
+  if (frecuencia === 'una_vez') return i.fecha >= hoy ? i.fecha : undefined
+  // semanal: de la fecha de referencia, de 7 en 7 hasta llegar a hoy
+  const dias = Math.round((Date.parse(`${hoy}T00:00:00Z`) - Date.parse(`${i.fecha}T00:00:00Z`)) / 86_400_000)
+  return dias <= 0 ? i.fecha : sumarDias(i.fecha, Math.ceil(dias / 7) * 7)
+}
+
 export function sumarDias(iso: string, n: number): string {
   return new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
 }
