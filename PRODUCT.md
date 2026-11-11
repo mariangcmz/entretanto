@@ -37,7 +37,7 @@ No es un presupuesto por categorías ni un agregador bancario. Su mecanismo es u
 - Tono directo, cálido y sin regaños. Nunca culpa a la persona por sus deudas.
 
 ## Evidence on Hand
-Solo datos ficticios (src/ui/datosFicticios.ts). No hay testimonios, usuarios ni cifras reales; no inventarlos.
+Desde la Fase 3 los datos son los que captura cada persona; no hay datos ficticios en el código. No hay testimonios, usuarios ni cifras reales; no inventarlos.
 
 ## Product Principles
 1. Si pide mucho esfuerzo, se deja de usar: cada acción en el menor número de pasos.

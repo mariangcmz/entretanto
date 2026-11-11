@@ -1,37 +1,45 @@
 import type { ComponentChildren } from 'preact'
 import { useState } from 'preact/hooks'
-import { registrar, reversar } from '../engine/bitacora'
+import type { Repositorio } from '../data/repositorio'
+import { reversar } from '../engine/bitacora'
 import { calcularCifras } from '../engine/cifras'
 import { formatear, formatearFecha } from '../engine/dinero'
 import type { Datos, Movimiento } from '../engine/tipos'
 import { Bitacora } from './Bitacora'
 import { Calado } from './Calado'
 import { Captura } from './Captura'
-import { datosFicticios } from './datosFicticios'
+import { Ajustes } from './Ajustes'
 
 const cobro = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric' }).replace(',', '')
 const hoyISO = () => new Date().toLocaleDateString('en-CA') // YYYY-MM-DD en hora local
 
 type Cual = 'tengo' | 'dueno'
 
-export function App() {
-  // shortcut: vive en memoria y se pierde al recargar; la Fase 3 lo guarda en Firestore.
-  const [datos, setDatos] = useState<Datos>(datosFicticios)
-  const alRegistrar = (m: Movimiento) => setDatos(d => ({ ...d, movimientos: registrar(d.movimientos, m) }))
-  const alDeshacer = (id: string) => setDatos(d => ({ ...d, movimientos: reversar(d.movimientos, id, Date.now()) }))
+export function App({ datos, repo }: { datos: Datos; repo: Repositorio }) {
+  // Sin await: Firestore lo pinta al instante desde su caché y lo sube cuando hay señal.
+  // Si el mismo movimiento llega dos veces, las reglas rechazan el segundo (sería una edición); no hay nada que avisar.
+  const alRegistrar = (m: Movimiento) => { repo.registrar(m).catch(() => {}) }
+  const alDeshacer = (id: string) => {
+    const movs = reversar(datos.movimientos, id, Date.now())
+    if (movs !== datos.movimientos) alRegistrar(movs[movs.length - 1]!)
+  }
   const hoy = hoyISO()
   const c = calcularCifras(datos, hoy)
   const [abierta, setAbierta] = useState<Cual | null>(null)
+  const [ajustes, setAjustes] = useState(false)
   const alternar = (k: Cual) => setAbierta(abierta === k ? null : k)
   const fecha = datos.config.fechaProximoIngreso
+  const vacia = datos.cuentas.length === 0 && datos.deudas.length === 0
+
+  if (ajustes) return <Ajustes datos={datos} repo={repo} volver={() => { setAjustes(false); scrollTo(0, 0) }} />
 
   return (
     <main>
       <header class="cabecera">
         <h1 class="marca"><span>Entre</span><span>tanto</span></h1>
         {fecha
-          ? <p class="pill">Cobras el {cobro(fecha)}</p>
-          : <p class="pill alerta">¿Cuándo cobras?</p>}
+          ? <button type="button" class="pill boton" onClick={() => setAjustes(true)}>Cobras el {cobro(fecha)}</button>
+          : <button type="button" class="pill boton alerta" onClick={() => setAjustes(true)}>¿Cuándo cobras?</button>}
       </header>
       {!fecha && <p class="nota">Sin la fecha de tu próximo ingreso, la cifra es provisional.</p>}
 
@@ -58,8 +66,11 @@ export function App() {
         )}
       </section>
 
-      <Captura datos={datos} registrar={alRegistrar} />
+      {vacia
+        ? <button type="button" class="registrar" onClick={() => setAjustes(true)}>Agrega tus cuentas y tarjetas para empezar</button>
+        : <Captura datos={datos} registrar={alRegistrar} />}
       <Bitacora movimientos={datos.movimientos} cuentas={[...datos.cuentas, ...datos.deudas]} deshacer={alDeshacer} />
+      <button type="button" class="enlace" onClick={() => setAjustes(true)}>Tus cuentas, tarjetas y pagos fijos</button>
     </main>
   )
 }

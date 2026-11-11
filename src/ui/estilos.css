@@ -187,3 +187,28 @@ input, select, button { font: inherit; color: inherit; }
   .segmentos span, .registrar { transition: background-color .15s ease-out, color .15s ease-out; }
   .barra span { transition: flex-grow .4s cubic-bezier(.16, 1, .3, 1); }
 }
+
+/* Fase 3: portada de entrada y pantalla de tus datos */
+button.pill { border: 0; cursor: pointer; }
+.portada { min-height: 100dvh; align-content: center; gap: 1.25rem; }
+.portada .banner { min-height: 12rem; display: flex; align-items: flex-end; }
+.portada-marca { font-size: clamp(3.5rem, 18vw, 4.75rem); color: var(--hueso); }
+.portada-lema { margin: 0; font: italic 400 1.6rem/1.2 var(--serif); }
+.portada code { font-size: .9em; }
+
+.ajuste { display: grid; gap: .5rem; margin-top: 1rem; }
+.ajuste h2 { margin: 0; font: italic 400 1.6rem/1.1 var(--serif); }
+.ajuste-item { border-bottom: 1px solid var(--linea); }
+.ajuste-item summary {
+  cursor: pointer; min-height: 3rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+.ajuste-item.nuevo summary { color: var(--suave); text-decoration: underline; text-underline-offset: .2em; }
+.ajuste-item[open] { padding-bottom: 1rem; }
+.editor { display: grid; gap: .8rem; padding-top: .5rem; }
+.editor .campo small { font-weight: 400; color: var(--suave); }
+.campo input {
+  min-height: 2.75rem; padding: 0 .75rem; color: var(--texto); font-stretch: 87.5%; font-weight: 400;
+  background: var(--fondo); border: 1px solid var(--linea); border-radius: .9rem;
+}
+.ajuste > .registrar, .editor .registrar { min-height: 3rem; }

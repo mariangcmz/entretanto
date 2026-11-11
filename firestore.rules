@@ -1,0 +1,40 @@
+rules_version = '2';
+
+// Cada persona solo ve y escribe lo suyo, bajo users/{uid}/.
+// La bitácora (movimientos) solo crece: se puede crear, nunca editar ni borrar.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function esDuena(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function movimientoValido(id) {
+      let m = request.resource.data;
+      return m.keys().hasAll(['id', 'ts', 'tipo', 'monto', 'moneda', 'quien', 'afectaMisCifras', 'nota', 'claveUnica'])
+        && m.keys().hasOnly(['id', 'ts', 'tipo', 'monto', 'moneda', 'cuentaId', 'deudaId', 'compromisoId',
+                             'quien', 'afectaMisCifras', 'nota', 'reversaDe', 'claveUnica'])
+        && m.claveUnica == id
+        && m.ts is int
+        && m.monto is int
+        && m.tipo in ['ingreso', 'gasto', 'pago_deuda', 'reverso', 'ajuste']
+        && m.moneda in ['MXN', 'USD']
+        && m.quien in ['yo', 'pareja', 'otro']
+        && m.afectaMisCifras is bool
+        && m.nota is string && m.nota.size() <= 500;
+    }
+
+    match /users/{uid} {
+      match /movimientos/{id} {
+        allow read: if esDuena(uid);
+        allow create: if esDuena(uid) && movimientoValido(id);
+        allow update, delete: if false;
+      }
+
+      // Cuentas, deudas, compromisos y config sí se editan (cambian con cada estado de cuenta).
+      // La lista deja fuera a movimientos: las reglas se suman y este match también lo alcanzaría.
+      match /{coleccion}/{id} {
+        allow read, write: if esDuena(uid) && coleccion in ['config', 'cuentas', 'deudas', 'compromisos'];
+      }
+    }
+  }
+}
