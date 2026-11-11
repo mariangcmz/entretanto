@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calcularCifras } from '../src/engine/cifras'
+import { calcularCifras, proximoCobro } from '../src/engine/cifras'
 import { pesos } from '../src/engine/dinero'
 import { pagoDelCorte, ultimoCorte } from '../src/engine/fechas'
 import type { Datos, Movimiento } from '../src/engine/tipos'
@@ -72,6 +72,21 @@ describe('reglas de las cifras', () => {
       { id: 'tel', nombre: 'Teléfono', monto: pesos(200), moneda: 'MXN', fechaVence: '2026-11-15', estado: 'pendiente' },
     )
     expect(calcularCifras(d, HOY).tieneDueno).toBe(pesos(1200))
+  })
+
+  it('el próximo cobro es el ingreso más cercano: el mensual por su día, el de una vez por su fecha', () => {
+    const d = base()
+    d.ingresos = [
+      { id: 'pen', nombre: 'Pensión', moneda: 'MXN', monto: pesos(3575), diaCobro: 3 }, // ya pasó el 3: cae el 3 de dic
+      { id: 'nat', nombre: 'Natura', moneda: 'MXN', fecha: '2026-11-20' },
+      { id: 'vie', nombre: 'Natura vieja', moneda: 'MXN', fecha: '2026-11-01' }, // ya pasó: no cuenta
+    ]
+    expect(proximoCobro(d, HOY)).toEqual({ fecha: '2026-11-20', nombre: 'Natura', montoMXN: undefined })
+    d.ingresos.pop(); d.ingresos.pop()
+    expect(proximoCobro(d, HOY)).toEqual({ fecha: '2026-12-03', nombre: 'Pensión', montoMXN: pesos(3575) })
+    // con ingresos, la fecha suelta de la config ya no manda: aparta pagos fijos hasta el 10 de dic
+    d.compromisos.push({ id: 'luz', nombre: 'Luz', monto: pesos(400), moneda: 'MXN', fechaVence: '2026-12-08', estado: 'pendiente' })
+    expect(calcularCifras(d, HOY).tieneDueno).toBe(pesos(850 + 400))
   })
 
   it('sin fecha de próximo ingreso la cifra no es definitiva', () => {

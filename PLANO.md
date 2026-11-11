@@ -44,7 +44,8 @@ No se usan Cloud Functions ni IA en la v1 (requieren el plan de pago).
 ## Modelo de datos
 Todo vive bajo `users/{uid}/`. Montos en enteros (centavos) más un campo de moneda (`MXN` o `USD`).
 
-- **config** (un documento): `tipoCambioUSD`, `fechaProximoIngreso`, `ingresoEsperado`.
+- **config** (un documento): `tipoCambioUSD`, `presupuestoDeuda`; `fechaProximoIngreso` e `ingresoEsperado` quedan solo como respaldo si no hay ingresos.
+- **ingresos**: `nombre`, `monto` opcional (lo esperado), `moneda`, `diaCobro` (si cae cada mes el mismo día) o `fecha` (si es una sola vez). El próximo cobro es el más cercano de todos.
 - **cuentas**: `nombre`, `tipo` (efectivo, débito, otro), `moneda`, `saldoInicial`. El saldo es el inicial más la suma de sus movimientos.
 - **deudas**: `nombre`, `tipo` (tarjeta, préstamo), `moneda`, `saldoInicial`, `tasaAnual`, `minimo`, `pagoSinIntereses` (ambos del último estado de cuenta), `diaCorte`, `diaPago` (día del mes, distinto en cada tarjeta), `ordenPlan`.
 - **compromisos**: `nombre`, `monto`, `moneda`, `fechaVence`, `deudaId` opcional, `estado` (pendiente o cubierto).
@@ -117,3 +118,4 @@ Abres la app y ves cuánto te queda en menos de 10 segundos, y registras un gast
 - 2026-11-11 · Fase 3 · publicada en https://entretanto-app.web.app. Al publicar, el login usa el propio dominio como `authDomain` (con firebaseapp.com la redirección perdía la sesión); en desarrollo se entra con ventana emergente. Requisito: `https://entretanto-app.web.app/__/auth/handler` en los URIs de redireccionamiento del cliente OAuth web (Google Cloud > Credenciales). Login por redirección probado en producción.
 - 2026-11-11 · Fase 3 · por uso real: cada tarjeta aparta su estado de cuenta ya cortado aunque venza después del cobro, y el monto lo decide la avalancha (mínimos + lo que sobre del presupuesto mensual para deudas a la tasa más alta; las que se pagan completas apartan su pago sin intereses). El inicio muestra los pagos de tarjeta con su fecha límite.
 - 2026-11-11 · Fase 3 · pagos fijos hasta 7 días después del cobro; préstamos (Bravo) apartan siempre su siguiente pago fijo; sin presupuesto para deudas, el inicio dice a qué tarjeta va lo que se pueda meter de más.
+- 2026-11-11 · Fase 3 · varios ingresos (pensión cada mes en su día, Natura variable con fecha cuando se sabe); el próximo cobro es el más cercano y la pill del inicio dice cuál.

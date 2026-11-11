@@ -3,7 +3,7 @@ export type Moneda = 'MXN' | 'USD'
 
 export interface Config {
   tipoCambioUSD: number // pesos por dólar
-  fechaProximoIngreso?: string
+  fechaProximoIngreso?: string // de antes de la lista de ingresos; solo se usa si no hay ingresos con fecha
   ingresoEsperado?: number
   presupuestoDeuda?: number // pesos al mes para deudas; lo que pase de los mínimos va por avalancha
 }
@@ -29,6 +29,16 @@ export interface Deuda {
   diaPago?: number // 1-31, fecha límite de pago
   ordenPlan?: number // desempata la avalancha entre tasas iguales
   pagoCompleto?: boolean // la pago completa cada mes: sale de la avalancha y aparta su pago sin intereses
+}
+
+/** Una fuente de dinero que entra: la pensión cada mes en su día, o un cobro de Natura con su fecha. */
+export interface Ingreso {
+  id: string
+  nombre: string
+  monto?: number // lo que esperas; puede variar
+  moneda: Moneda
+  diaCobro?: number // 1-31 si cae cada mes el mismo día
+  fecha?: string // si es una sola vez
 }
 
 export interface Compromiso {
@@ -63,4 +73,5 @@ export interface Datos {
   deudas: Deuda[]
   compromisos: Compromiso[]
   movimientos: Movimiento[]
+  ingresos?: Ingreso[]
 }

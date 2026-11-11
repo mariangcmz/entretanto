@@ -21,6 +21,7 @@ export interface Cifras {
   meQuedaSiPagoSinIntereses: number // si las tarjetas sin pago elegido se pagan completas
   cargosAjenos: number // gastos de pareja/otros que sí mueven mis cifras
   definitiva: boolean // false si falta la fecha del próximo ingreso
+  proximoCobro?: { fecha: string; nombre?: string; montoMXN?: number }
   desglose: { cuentas: LineaCuenta[]; apartados: LineaApartado[] }
 }
 
@@ -31,6 +32,17 @@ const delta = (m: Movimiento) =>
 export function vigentes(movs: Movimiento[]): Movimiento[] {
   const revertidos = new Set(movs.filter(m => m.tipo === 'reverso').map(m => m.reversaDe))
   return movs.filter(m => m.afectaMisCifras && m.tipo !== 'reverso' && !revertidos.has(m.id))
+}
+
+/** El ingreso más cercano en o después de hoy entre todas las fuentes; si no hay, la fecha suelta de la config. */
+export function proximoCobro(d: Datos, hoy: string): Cifras['proximoCobro'] {
+  const fechas = (d.ingresos ?? []).flatMap(i => {
+    const f = i.diaCobro !== undefined ? proximoPago(hoy, i.diaCobro) : i.fecha
+    return f && f >= hoy ? [{ fecha: f, nombre: i.nombre, montoMXN: i.monto === undefined ? undefined : aMXN(i.monto, i.moneda, d.config.tipoCambioUSD) }] : []
+  }).sort((a, b) => a.fecha.localeCompare(b.fecha))
+  if (fechas.length) return fechas[0]
+  const f = d.config.fechaProximoIngreso
+  return f && f >= hoy ? { fecha: f } : undefined
 }
 
 export function calcularCifras(d: Datos, hoy: string): Cifras {
@@ -46,7 +58,8 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
   const cubiertos = new Set(movs.filter(m => m.tipo === 'pago_deuda').map(m => m.compromisoId))
   // Pagos fijos: lo que vence hasta 7 días después del próximo cobro. Lo que vence justo tras cobrar
   // no da tiempo de juntarlo con ese ingreso, así que se aparta desde ya.
-  const corte = sumarDias(d.config.fechaProximoIngreso ?? hoy, 7)
+  const cobro = proximoCobro(d, hoy)
+  const corte = sumarDias(cobro?.fecha ?? hoy, 7)
   const vistos = new Set<string>()
   const apartados: LineaApartado[] = []
   for (const c of d.compromisos) {
@@ -118,7 +131,8 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
     falta: Math.max(0, -meQueda),
     meQuedaSiPagoSinIntereses: meQueda - apartados.reduce((s, a) => s + a.extraSinInteresesMXN, 0),
     cargosAjenos,
-    definitiva: d.config.fechaProximoIngreso !== undefined,
+    definitiva: cobro !== undefined,
+    proximoCobro: cobro,
     desglose: { cuentas, apartados },
   }
 }

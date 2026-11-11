@@ -30,10 +30,10 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
-      // Cuentas, deudas, compromisos y config sí se editan (cambian con cada estado de cuenta).
+      // Cuentas, deudas, compromisos, ingresos y config sí se editan (cambian con cada estado de cuenta).
       // La lista deja fuera a movimientos: las reglas se suman y este match también lo alcanzaría.
       match /{coleccion}/{id} {
-        allow read, write: if esDuena(uid) && coleccion in ['config', 'cuentas', 'deudas', 'compromisos'];
+        allow read, write: if esDuena(uid) && coleccion in ['config', 'cuentas', 'deudas', 'compromisos', 'ingresos'];
       }
     }
   }

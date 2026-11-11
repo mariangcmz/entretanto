@@ -28,7 +28,7 @@ export function App({ datos, repo }: { datos: Datos; repo: Repositorio }) {
   const [abierta, setAbierta] = useState<Cual | null>(null)
   const [ajustes, setAjustes] = useState(false)
   const alternar = (k: Cual) => setAbierta(abierta === k ? null : k)
-  const fecha = datos.config.fechaProximoIngreso
+  const proximo = c.proximoCobro
   const vacia = datos.cuentas.length === 0 && datos.deudas.length === 0
 
   if (ajustes) return <Ajustes datos={datos} repo={repo} volver={() => { setAjustes(false); scrollTo(0, 0) }} />
@@ -37,11 +37,11 @@ export function App({ datos, repo }: { datos: Datos; repo: Repositorio }) {
     <main>
       <header class="cabecera">
         <h1 class="marca"><span>Entre</span><span>tanto</span></h1>
-        {fecha
-          ? <button type="button" class="pill boton" onClick={() => setAjustes(true)}>Cobras el {cobro(fecha)}</button>
+        {proximo
+          ? <button type="button" class="pill boton" onClick={() => setAjustes(true)}>{proximo.nombre ?? 'Cobras'} el {cobro(proximo.fecha)}</button>
           : <button type="button" class="pill boton alerta" onClick={() => setAjustes(true)}>¿Cuándo cobras?</button>}
       </header>
-      {!fecha && <p class="nota">Sin la fecha de tu próximo ingreso, la cifra es provisional.</p>}
+      {!proximo && <p class="nota">Sin la fecha de tu próximo ingreso, la cifra es provisional. Agrégalo en tus datos.</p>}
 
       <section class="banner" aria-labelledby="t-queda">
         <Calado class="calado" />
@@ -72,7 +72,7 @@ export function App({ datos, repo }: { datos: Datos; repo: Repositorio }) {
         ? <button type="button" class="registrar" onClick={() => setAjustes(true)}>Agrega tus cuentas y tarjetas para empezar</button>
         : <Captura datos={datos} registrar={alRegistrar} />}
       <Bitacora movimientos={datos.movimientos} cuentas={[...datos.cuentas, ...datos.deudas]} deshacer={alDeshacer} />
-      <button type="button" class="enlace" onClick={() => setAjustes(true)}>Tus cuentas, tarjetas y pagos fijos</button>
+      <button type="button" class="enlace" onClick={() => setAjustes(true)}>Tus ingresos, cuentas, tarjetas y pagos fijos</button>
     </main>
   )
 }

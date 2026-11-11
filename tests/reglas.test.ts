@@ -48,8 +48,8 @@ describe.skipIf(!conEmulador)('reglas de Firestore', () => {
     await assertFails(setDoc(doc(otra, 'users/ana/movimientos/k1'), mov('k1')))
   })
 
-  it('cuentas, deudas, compromisos y config sí se editan y borran', async () => {
-    for (const ruta of ['cuentas/deb', 'deudas/nu', 'compromisos/inet', 'config/principal']) {
+  it('cuentas, deudas, compromisos, ingresos y config sí se editan y borran', async () => {
+    for (const ruta of ['cuentas/deb', 'deudas/nu', 'compromisos/inet', 'ingresos/pension', 'config/principal']) {
       const d = doc(yo(), `users/ana/${ruta}`)
       await assertSucceeds(setDoc(d, { nombre: 'x' }))
       await assertSucceeds(updateDoc(d, { nombre: 'y' }))

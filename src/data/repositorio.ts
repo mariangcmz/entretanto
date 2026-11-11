@@ -1,10 +1,10 @@
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query, setDoc, type Firestore, type Unsubscribe } from 'firebase/firestore'
 import { registrar } from '../engine/bitacora'
-import type { Compromiso, Config, Cuenta, Datos, Deuda, Movimiento } from '../engine/tipos'
+import type { Compromiso, Config, Cuenta, Datos, Deuda, Ingreso, Movimiento } from '../engine/tipos'
 
 // Todo vive bajo users/{uid}/. La config es un solo documento: users/{uid}/config/principal.
-export type Catalogo = 'cuentas' | 'deudas' | 'compromisos'
-type ItemDe<C extends Catalogo> = { cuentas: Cuenta; deudas: Deuda; compromisos: Compromiso }[C]
+export type Catalogo = 'cuentas' | 'deudas' | 'compromisos' | 'ingresos'
+type ItemDe<C extends Catalogo> = { cuentas: Cuenta; deudas: Deuda; compromisos: Compromiso; ingresos: Ingreso }[C]
 
 export const CONFIG_INICIAL: Config = { tipoCambioUSD: 18 }
 
@@ -16,12 +16,12 @@ export function crearRepositorio(db: Firestore, uid: string) {
     escuchar(alCambiar: (d: Datos) => void, alFallar: (e: Error) => void): Unsubscribe {
       const parcial: Partial<Datos> = {}
       const listo = () => {
-        const { config, cuentas, deudas, compromisos, movimientos } = parcial
-        if (config && cuentas && deudas && compromisos && movimientos) alCambiar({ config, cuentas, deudas, compromisos, movimientos })
+        const { config, cuentas, deudas, compromisos, movimientos, ingresos } = parcial
+        if (config && cuentas && deudas && compromisos && movimientos && ingresos) alCambiar({ config, cuentas, deudas, compromisos, movimientos, ingresos })
       }
       const lista = (nombre: Catalogo) =>
         onSnapshot(collection(db, ruta(nombre)), s => {
-          parcial[nombre] = s.docs.map(d => ({ ...d.data(), id: d.id })) as never
+          ;(parcial as Record<Catalogo, unknown>)[nombre] = s.docs.map(d => ({ ...d.data(), id: d.id }))
           listo()
         }, alFallar)
       const subs = [
@@ -29,7 +29,7 @@ export function crearRepositorio(db: Firestore, uid: string) {
           parcial.config = { ...CONFIG_INICIAL, ...(s.data() as Partial<Config> | undefined) }
           listo()
         }, alFallar),
-        lista('cuentas'), lista('deudas'), lista('compromisos'),
+        lista('cuentas'), lista('deudas'), lista('compromisos'), lista('ingresos'),
         onSnapshot(query(collection(db, ruta('movimientos')), orderBy('ts')), s => {
           // Se vuelve a congelar: la bitácora en memoria tampoco admite edición ni borrado.
           parcial.movimientos = s.docs.map(d => d.data() as Movimiento).reduce(registrar, [])

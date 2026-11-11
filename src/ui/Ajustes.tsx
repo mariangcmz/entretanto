@@ -41,6 +41,13 @@ const CAMPOS: Record<Catalogo, Campo[]> = {
     DIA('diaPago', 'Día límite de pago'),
     { k: 'pagoCompleto', etiqueta: '¿La pagas completa cada mes?', tipo: 'sino', ayuda: 'Si sí, aparta el pago sin intereses y sale de la avalancha' },
   ],
+  ingresos: [
+    { k: 'nombre', etiqueta: 'Nombre', tipo: 'texto' },
+    { k: 'monto', etiqueta: 'Cuánto esperas', tipo: 'dinero', opcional: true, ayuda: 'Si varía, déjalo vacío o pon lo mínimo que esperas' },
+    MONEDA,
+    { ...DIA('diaCobro', 'Día de cobro cada mes'), ayuda: 'Si cae el mismo día cada mes, como la pensión' },
+    { k: 'fecha', etiqueta: 'O fecha de un cobro', tipo: 'fecha', opcional: true, ayuda: 'Si es una sola vez, como un cobro de Natura' },
+  ],
   compromisos: [
     { k: 'nombre', etiqueta: 'Nombre', tipo: 'texto' },
     { k: 'monto', etiqueta: 'Monto', tipo: 'dinero' },
@@ -50,8 +57,6 @@ const CAMPOS: Record<Catalogo, Campo[]> = {
 }
 
 const CAMPOS_CONFIG: Campo[] = [
-  { k: 'fechaProximoIngreso', etiqueta: 'Próximo cobro', tipo: 'fecha', opcional: true },
-  { k: 'ingresoEsperado', etiqueta: 'Cuánto esperas cobrar', tipo: 'dinero', opcional: true },
   { k: 'tipoCambioUSD', etiqueta: 'Tipo de cambio (pesos por dólar)', tipo: 'numero', min: 0.01 },
   { k: 'presupuestoDeuda', etiqueta: 'Para deudas cada mes', tipo: 'dinero', opcional: true, ayuda: 'Lo que pase de los mínimos va a la tarjeta con la tasa más alta (avalancha)' },
 ]
@@ -60,6 +65,7 @@ const NUEVO: Record<Catalogo, Item> = {
   cuentas: { tipo: 'debito', moneda: 'MXN' },
   deudas: { tipo: 'tarjeta', moneda: 'MXN' },
   compromisos: { moneda: 'MXN', estado: 'pendiente' },
+  ingresos: { moneda: 'MXN' },
 }
 
 const SINO: [string, string][] = [['', 'No'], ['si', 'Sí']]
@@ -126,22 +132,26 @@ const TITULOS: Record<Catalogo, [string, string]> = {
   cuentas: ['Cuentas', 'Agregar cuenta'],
   deudas: ['Tarjetas y préstamos', 'Agregar tarjeta o préstamo'],
   compromisos: ['Pagos fijos', 'Agregar pago fijo'],
+  ingresos: ['Ingresos', 'Agregar ingreso'],
 }
 
 function Lista(p: { cat: Catalogo; datos: Datos; repo: Repositorio }) {
-  const items = p.datos[p.cat] as unknown as (Item & { id: string; nombre: string; moneda: 'MXN' | 'USD' })[]
+  const items = (p.datos[p.cat] ?? []) as unknown as (Item & { id: string; nombre: string; moneda: 'MXN' | 'USD' })[]
   const [titulo, agregar] = TITULOS[p.cat]
   const guardar = (i: Item) => p.repo.guardar(p.cat, i as never)
   // Lo que ya aparece en la bitácora no se quita: dejaría movimientos sin su cuenta.
   const enUso = new Set(p.datos.movimientos.flatMap(m => [m.cuentaId, m.deudaId, m.compromisoId]))
-  const monto = (i: Item) => (i.saldoInicial ?? i.monto) as number
+  const monto = (i: Item & { moneda: 'MXN' | 'USD' }) => {
+    const m = (i.saldoInicial ?? i.monto) as number | undefined
+    return m === undefined ? 'Variable' : formatear(m, i.moneda)
+  }
 
   return (
     <section class="ajuste" aria-labelledby={`t-${p.cat}`}>
       <h2 id={`t-${p.cat}`}>{titulo}</h2>
       {items.map(i => (
         <details key={i.id} class="ajuste-item">
-          <summary><span>{i.nombre}</span><span>{formatear(monto(i), i.moneda)}</span></summary>
+          <summary><span>{i.nombre}</span><span>{monto(i)}</span></summary>
           <Editor campos={CAMPOS[p.cat]} item={i} guardar={guardar} boton="Guardar cambios" />
           {enUso.has(i.id)
             ? <p class="nota">Tiene movimientos en la bitácora, así que se queda.</p>
@@ -167,9 +177,10 @@ export function Ajustes(p: { datos: Datos; repo: Repositorio; volver: () => void
         <button type="button" class="pill boton" onClick={p.volver}>Listo</button>
       </header>
       <section class="ajuste" aria-labelledby="t-config">
-        <h2 id="t-config">Cobro y tipo de cambio</h2>
+        <h2 id="t-config">Deudas y tipo de cambio</h2>
         <Editor campos={CAMPOS_CONFIG} item={p.datos.config as unknown as Item} guardar={i => p.repo.guardarConfig(i as unknown as Config)} boton="Guardar" />
       </section>
+      <Lista cat="ingresos" datos={p.datos} repo={p.repo} />
       <Lista cat="cuentas" datos={p.datos} repo={p.repo} />
       <Lista cat="deudas" datos={p.datos} repo={p.repo} />
       <Lista cat="compromisos" datos={p.datos} repo={p.repo} />
