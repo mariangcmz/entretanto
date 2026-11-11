@@ -10,7 +10,7 @@ import type { Config, Datos } from '../engine/tipos'
 type Campo = {
   k: string
   etiqueta: string
-  tipo: 'texto' | 'dinero' | 'numero' | 'fecha' | 'opciones'
+  tipo: 'texto' | 'dinero' | 'numero' | 'fecha' | 'opciones' | 'sino'
   opciones?: [string, string][]
   opcional?: boolean
   ayuda?: string
@@ -39,6 +39,7 @@ const CAMPOS: Record<Catalogo, Campo[]> = {
     { k: 'pagoSinIntereses', etiqueta: 'Pago para no generar intereses', tipo: 'dinero', opcional: true },
     DIA('diaCorte', 'Día de corte'),
     DIA('diaPago', 'Día límite de pago'),
+    { k: 'pagoCompleto', etiqueta: '¿La pagas completa cada mes?', tipo: 'sino', ayuda: 'Si sí, aparta el pago sin intereses y sale de la avalancha' },
   ],
   compromisos: [
     { k: 'nombre', etiqueta: 'Nombre', tipo: 'texto' },
@@ -52,6 +53,7 @@ const CAMPOS_CONFIG: Campo[] = [
   { k: 'fechaProximoIngreso', etiqueta: 'Próximo cobro', tipo: 'fecha', opcional: true },
   { k: 'ingresoEsperado', etiqueta: 'Cuánto esperas cobrar', tipo: 'dinero', opcional: true },
   { k: 'tipoCambioUSD', etiqueta: 'Tipo de cambio (pesos por dólar)', tipo: 'numero', min: 0.01 },
+  { k: 'presupuestoDeuda', etiqueta: 'Para deudas cada mes', tipo: 'dinero', opcional: true, ayuda: 'Lo que pase de los mínimos va a la tarjeta con la tasa más alta (avalancha)' },
 ]
 
 const NUEVO: Record<Catalogo, Item> = {
@@ -60,10 +62,12 @@ const NUEVO: Record<Catalogo, Item> = {
   compromisos: { moneda: 'MXN', estado: 'pendiente' },
 }
 
-const aTexto = (c: Campo, v: unknown) => v === undefined || v === null ? '' : c.tipo === 'dinero' ? String((v as number) / 100) : String(v)
+const SINO: [string, string][] = [['', 'No'], ['si', 'Sí']]
+const aTexto = (c: Campo, v: unknown) => v === undefined || v === null ? '' : c.tipo === 'sino' ? (v ? 'si' : '') : c.tipo === 'dinero' ? String((v as number) / 100) : String(v)
 function deTexto(c: Campo, s: string): unknown {
   const t = s.trim()
   if (t === '') return undefined
+  if (c.tipo === 'sino') return true
   if (c.tipo === 'dinero') return pesos(Number(t.replace(/[$,\s]/g, '')))
   if (c.tipo === 'numero') return Number(t)
   return t
@@ -97,9 +101,9 @@ function Editor(p: { campos: Campo[]; item: Item; guardar: (i: Item) => Promise<
         return (
           <label key={c.k} class="campo" for={id}>
             <span>{c.etiqueta}{c.opcional && <small> (opcional)</small>}</span>
-            {c.tipo === 'opciones'
+            {c.tipo === 'opciones' || c.tipo === 'sino'
               ? <select id={id} value={valores[c.k]} onChange={e => pon(c.k, e.currentTarget.value)}>
-                  {c.opciones!.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                  {(c.opciones ?? SINO).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
                 </select>
               : <input
                   id={id} required={!c.opcional} value={valores[c.k]} onInput={e => pon(c.k, e.currentTarget.value)}

@@ -159,8 +159,8 @@ input, select, button { font: inherit; color: inherit; }
 
 /* Bitácora: la fecha en su propia columna */
 .bitacora { margin-top: 1.5rem; }
-.bitacora h2 { margin: 0 0 .25rem; font: italic 400 1.75rem/1.1 var(--serif); }
-.bitacora ol { list-style: none; margin: 0; padding: 0; }
+.bitacora h2, .pagos h2 { margin: 0 0 .25rem; font: italic 400 1.75rem/1.1 var(--serif); }
+.bitacora ol, .pagos ol { list-style: none; margin: 0; padding: 0; }
 .mov {
   display: grid; grid-template-columns: 2.5rem 1fr auto; column-gap: .9rem; align-items: baseline;
   padding: .85rem 0; border-bottom: 1px solid var(--linea);
@@ -212,3 +212,7 @@ button.pill { border: 0; cursor: pointer; }
   background: var(--fondo); border: 1px solid var(--linea); border-radius: .9rem;
 }
 .ajuste > .registrar, .editor .registrar { min-height: 3rem; }
+
+/* Pagos de tarjeta en el inicio: misma columna de fecha que la bitácora */
+.pagos { margin-top: .75rem; }
+.mov-detalle.vencido { color: var(--alerta); font-weight: 600; }

@@ -119,19 +119,60 @@ describe('tarjetas con su propio corte y fecha límite', () => {
     expect(pagoDelCorte('2027-01-31', 30)).toBe('2027-02-28')
   })
 
-  it('aparta solo las tarjetas cuyo pago vence antes del próximo ingreso, y las vencidas', () => {
+  it('cada tarjeta aparta el pago de su último corte aunque venza después del próximo ingreso', () => {
     const d = base()
     d.deudas.push(
-      tarjeta('A', 3, 13), // corte 3-nov, paga 13-nov: entra
-      tarjeta('B', 28, 18), // corte 28-oct, paga 18-nov: después del ingreso, no entra
-      tarjeta('C', 20, 8), // corte 20-oct, pagaba 8-nov: vencida, entra
+      tarjeta('A', 3, 13), // corte 3-nov, paga 13-nov
+      tarjeta('B', 28, 18), // corte 28-oct, paga 18-nov: después del ingreso, pero ya se debe
+      tarjeta('C', 20, 8), // corte 20-oct, pagaba 8-nov: vencida
     )
     const c = calcularCifras(d, HOY)
     expect(c.desglose.apartados.map(a => [a.nombre, a.fechaVence])).toEqual([
-      ['Internet', '2026-11-12'], ['A', '2026-11-13'], ['C', '2026-11-08'],
+      ['Internet', '2026-11-12'], ['A', '2026-11-13'], ['B', '2026-11-18'], ['C', '2026-11-08'],
     ])
-    expect(c.tieneDueno).toBe(pesos(850 + 300 + 300))
-    expect(c.meQuedaSiPagoSinIntereses).toBe(c.meQueda - pesos(900 * 2))
+    expect(c.tieneDueno).toBe(pesos(850 + 300 * 3))
+    expect(c.meQuedaSiPagoSinIntereses).toBe(c.meQueda - pesos(900 * 3))
+  })
+
+  it('un pago fijo que vence después del próximo ingreso no se aparta todavía', () => {
+    const d = base()
+    d.compromisos.push({ id: 'nat', nombre: 'Natura', monto: pesos(500), moneda: 'MXN', fechaVence: '2026-11-17', estado: 'pendiente' })
+    expect(calcularCifras(d, HOY).tieneDueno).toBe(pesos(850))
+  })
+
+  it('avalancha: lo que sobra del presupuesto va a la tasa más alta; la que se paga completa aparta su pago sin intereses', () => {
+    const d = base()
+    d.config.presupuestoDeuda = pesos(2000)
+    d.deudas.push(
+      tarjeta('A', 3, 13), // 60%
+      { ...tarjeta('B', 3, 13), tasaAnual: 90 },
+      { ...tarjeta('C', 3, 13), pagoSinIntereses: pesos(500), pagoCompleto: true },
+    )
+    const c = calcularCifras(d, HOY)
+    // 2000 - (300 + 300 + 500) = 900 de extra, todo a B
+    const por = Object.fromEntries(c.desglose.apartados.map(a => [a.nombre, [a.montoMXN, a.avalanchaMXN ?? 0]]))
+    expect(por).toMatchObject({ A: [pesos(300), 0], B: [pesos(1200), pesos(900)], C: [pesos(500), 0] })
+    expect(c.tieneDueno).toBe(pesos(850 + 2000))
+  })
+
+  it('avalancha: al llegar al saldo de una deuda, el resto pasa a la siguiente; USD se convierte', () => {
+    const d = base()
+    d.config.presupuestoDeuda = pesos(6000)
+    d.deudas.push(
+      { ...tarjeta('A', 3, 13), tasaAnual: 90, saldoInicial: pesos(1000) }, // cabe 700 encima del mínimo
+      { ...tarjeta('U', 3, 13), moneda: 'USD', tasaAnual: 30, minimo: pesos(20), pagoSinIntereses: pesos(100), saldoInicial: pesos(500) },
+    )
+    const c = calcularCifras(d, HOY)
+    // 6000 - 300 - 20×18 = 5340; A recibe 700; U recibe 4640 MXN = 257.77 USD, se redondea hacia abajo
+    const u = c.desglose.apartados.find(a => a.nombre === 'U')!
+    expect(c.desglose.apartados.find(a => a.nombre === 'A')!.montoMXN).toBe(pesos(1000))
+    expect(u.montoMXN).toBe(Math.round((pesos(20) + 25777) * 18))
+  })
+
+  it('sin presupuesto para deudas, la avalancha no pone extra', () => {
+    const d = base()
+    d.deudas.push({ ...tarjeta('A', 3, 13), tasaAnual: 90 })
+    expect(calcularCifras(d, HOY).tieneDueno).toBe(pesos(850 + 300))
   })
 
   it('un pago hecho después del corte descuenta la reserva; uno anterior no', () => {
@@ -147,12 +188,12 @@ describe('tarjetas con su propio corte y fecha límite', () => {
 
   it('un gasto con tarjeta no baja lo que tengo y se aparta completo desde ya', () => {
     const d = base()
-    d.deudas.push(tarjeta('B', 28, 18)) // su pago vence después del ingreso: el estado de cuenta no se aparta
+    d.deudas.push(tarjeta('B', 28, 18)) // su estado de cuenta (300) se aparta aparte de los gastos nuevos
     d.movimientos.push(mov({ cuentaId: undefined, deudaId: 'B', monto: pesos(250), ts: ts('2026-11-02') }))
     d.movimientos.push(mov({ cuentaId: undefined, deudaId: 'B', monto: pesos(999), ts: ts('2026-10-20') })) // antes del corte: ya va en el estado de cuenta
     const c = calcularCifras(d, HOY)
     expect(c.tengoHoy).toBe(pesos(3000))
-    expect(c.tieneDueno).toBe(pesos(850 + 250))
+    expect(c.tieneDueno).toBe(pesos(850 + 300 + 250))
     expect(c.desglose.apartados.at(-1)).toEqual({ nombre: 'B: gastos desde el corte', fechaVence: '2026-12-18', montoMXN: pesos(250), extraSinInteresesMXN: 0 })
   })
 

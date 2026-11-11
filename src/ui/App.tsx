@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact'
 import { useState } from 'preact/hooks'
 import type { Repositorio } from '../data/repositorio'
 import { reversar } from '../engine/bitacora'
-import { calcularCifras } from '../engine/cifras'
+import { calcularCifras, type LineaApartado } from '../engine/cifras'
 import { formatear, formatearFecha } from '../engine/dinero'
 import type { Datos, Movimiento } from '../engine/tipos'
 import { Bitacora } from './Bitacora'
@@ -66,12 +66,42 @@ export function App({ datos, repo }: { datos: Datos; repo: Repositorio }) {
         )}
       </section>
 
+      <PagosTarjeta apartados={c.desglose.apartados} hoy={hoy} sinPresupuesto={!datos.config.presupuestoDeuda} />
+
       {vacia
         ? <button type="button" class="registrar" onClick={() => setAjustes(true)}>Agrega tus cuentas y tarjetas para empezar</button>
         : <Captura datos={datos} registrar={alRegistrar} />}
       <Bitacora movimientos={datos.movimientos} cuentas={[...datos.cuentas, ...datos.deudas]} deshacer={alDeshacer} />
       <button type="button" class="enlace" onClick={() => setAjustes(true)}>Tus cuentas, tarjetas y pagos fijos</button>
     </main>
+  )
+}
+
+/** Lo que toca pagar a cada tarjeta, por fecha límite: siempre a la vista en el inicio. */
+function PagosTarjeta(p: { apartados: LineaApartado[]; hoy: string; sinPresupuesto: boolean }) {
+  const pagos = p.apartados.filter(a => a.deudaId).sort((a, b) => a.fechaVence.localeCompare(b.fechaVence))
+  if (pagos.length === 0) return null
+  const f = (iso: string) => new Date(`${iso}T12:00:00`)
+  return (
+    <section class="pagos" aria-labelledby="t-pagos">
+      <h2 id="t-pagos">Pagos de tarjeta</h2>
+      <ol>
+        {pagos.map(a => (
+          <li key={a.deudaId} class="mov">
+            <span class="mov-fecha"><b>{f(a.fechaVence).getDate()}</b>{f(a.fechaVence).toLocaleDateString('es-MX', { month: 'short' }).replace('.', '')}</span>
+            <div class="mov-texto">
+              <span class="mov-nota">{a.nombre}</span>
+              <span class={a.fechaVence < p.hoy ? 'mov-detalle vencido' : 'mov-detalle'}>
+                {a.fechaVence < p.hoy ? 'Ya venció' : 'Fecha límite'}
+                {a.avalanchaMXN ? `, incluye ${formatear(a.avalanchaMXN)} extra (avalancha)` : ''}
+              </span>
+            </div>
+            <span class="mov-monto">{formatear(a.montoMXN)}</span>
+          </li>
+        ))}
+      </ol>
+      {p.sinPresupuesto && <p class="nota">Pon en tus datos cuánto destinas a deudas cada mes y la avalancha reparte lo que sobre de los mínimos.</p>}
+    </section>
   )
 }
 

@@ -5,6 +5,7 @@ export interface Config {
   tipoCambioUSD: number // pesos por dólar
   fechaProximoIngreso?: string
   ingresoEsperado?: number
+  presupuestoDeuda?: number // pesos al mes para deudas; lo que pase de los mínimos va por avalancha
 }
 
 export interface Cuenta {
@@ -26,7 +27,8 @@ export interface Deuda {
   pagoSinIntereses?: number // del último estado de cuenta
   diaCorte?: number // 1-31, cada tarjeta el suyo; si el mes es más corto se usa su último día
   diaPago?: number // 1-31, fecha límite de pago
-  ordenPlan?: number
+  ordenPlan?: number // desempata la avalancha entre tasas iguales
+  pagoCompleto?: boolean // la pago completa cada mes: sale de la avalancha y aparta su pago sin intereses
 }
 
 export interface Compromiso {

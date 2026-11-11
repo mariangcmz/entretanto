@@ -1,9 +1,17 @@
 import { aMXN } from './dinero'
+import { planAvalancha } from './deudas'
 import { fechaLocal, pagoDelCorte, ultimoCorte } from './fechas'
 import type { Datos, Movimiento } from './tipos'
 
 export interface LineaCuenta { nombre: string; saldoMXN: number }
-export interface LineaApartado { nombre: string; fechaVence: string; montoMXN: number; extraSinInteresesMXN: number }
+export interface LineaApartado {
+  nombre: string
+  fechaVence: string
+  montoMXN: number
+  extraSinInteresesMXN: number
+  deudaId?: string // pago del estado de cuenta de esta tarjeta
+  avalanchaMXN?: number // parte del monto que la avalancha pone encima del mínimo
+}
 
 export interface Cifras {
   tengoHoy: number
@@ -47,8 +55,9 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
     apartados.push({ nombre: c.nombre, fechaVence: c.fechaVence, montoMXN: aMXN(c.monto, c.moneda, tc), extraSinInteresesMXN: 0 })
   }
 
-  // Cada tarjeta aparta solita el pago de su último corte, con su propio día de corte y de pago.
-  // Reserva el mínimo; lo que ya se pagó desde ese corte se descuenta.
+  // Cada tarjeta aparta solita el pago de su último corte, con su propio día de corte y de pago, aunque venza
+  // después del próximo ingreso: ese dinero ya se debe. Cuánto, lo dice el plan avalancha; lo pagado desde el corte se descuenta.
+  const plan = planAvalancha(d.deudas, d.config.presupuestoDeuda, tc)
   for (const t of d.deudas) {
     if (t.tipo !== 'tarjeta' || t.diaCorte === undefined || t.diaPago === undefined) continue
     const desde = ultimoCorte(hoy, t.diaCorte)
@@ -57,12 +66,14 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
       .filter(m => m.tipo === 'pago_deuda' && m.deudaId === t.id && fechaLocal(m.ts) >= desde)
       .reduce((s, m) => s + m.monto, 0)
 
-    if (vence <= corte) {
-      const reserva = Math.max(0, t.minimo - pagado)
-      const extra = Math.max(0, (t.pagoSinIntereses ?? 0) - pagado - reserva)
-      if (reserva + extra > 0) {
-        apartados.push({ nombre: t.nombre, fechaVence: vence, montoMXN: aMXN(reserva, t.moneda, tc), extraSinInteresesMXN: aMXN(extra, t.moneda, tc) })
-      }
+    const { pago, extra: avalancha } = plan.get(t.id)!
+    const reserva = Math.max(0, pago - pagado)
+    const extra = Math.max(0, (t.pagoSinIntereses ?? 0) - Math.max(pago, pagado))
+    if (reserva + extra > 0) {
+      apartados.push({
+        nombre: t.nombre, fechaVence: vence, montoMXN: aMXN(reserva, t.moneda, tc), extraSinInteresesMXN: aMXN(extra, t.moneda, tc),
+        deudaId: t.id, avalanchaMXN: aMXN(Math.min(avalancha, reserva), t.moneda, tc),
+      })
     }
 
     // Lo gastado con la tarjeta desde el corte aún no sale en el estado de cuenta: se aparta completo desde ya,
@@ -71,7 +82,7 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
     const cargos = movs
       .filter(m => m.tipo === 'gasto' && m.deudaId === t.id && fechaLocal(m.ts) >= desde)
       .reduce((s, m) => s + m.monto, 0)
-    const sobrante = Math.max(0, pagado - Math.max(t.minimo, t.pagoSinIntereses ?? 0))
+    const sobrante = Math.max(0, pagado - Math.max(pago, t.pagoSinIntereses ?? 0))
     const porCubrir = Math.max(0, cargos - sobrante)
     if (porCubrir > 0) {
       const siguienteCorte = pagoDelCorte(desde, t.diaCorte)
