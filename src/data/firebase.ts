@@ -12,7 +12,10 @@ const app = initializeApp(emuladores
   ? { apiKey: 'demo', projectId: 'demo-entretanto', authDomain: 'localhost' }
   : {
       apiKey: env.VITE_FIREBASE_API_KEY,
-      authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+      // Publicada, el login por redirección corre en el mismo dominio que la app (Firebase Hosting sirve /__/auth):
+      // con otro dominio el navegador separa el almacenamiento y la sesión se pierde al volver de Google.
+      // En desarrollo no se puede (Firebase exige https), así que se entra con la ventana emergente.
+      authDomain: env.DEV ? env.VITE_FIREBASE_AUTH_DOMAIN : location.host,
       projectId: env.VITE_FIREBASE_PROJECT_ID,
       appId: env.VITE_FIREBASE_APP_ID,
     })
