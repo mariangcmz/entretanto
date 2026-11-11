@@ -4,7 +4,9 @@ import { formatear } from '../engine/dinero'
 import type { Movimiento } from '../engine/tipos'
 
 const QUIEN = { yo: '', pareja: 'Mi pareja', otro: 'Otra persona' }
-const cuando = (ts: number) => new Date(ts).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+const hora = (ts: number) => new Date(ts).toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })
+const dia = (ts: number) => new Date(ts).getDate()
+const mes = (ts: number) => new Date(ts).toLocaleDateString('es-MX', { month: 'short' }).replace('.', '')
 const signo = (m: Movimiento) => (m.tipo === 'ingreso' || (m.tipo === 'ajuste' && m.monto > 0) ? '+' : '−')
 
 export function Bitacora(p: { movimientos: Movimiento[]; cuentas: { id: string; nombre: string }[]; deshacer: (id: string) => void }) {
@@ -23,7 +25,7 @@ export function Bitacora(p: { movimientos: Movimiento[]; cuentas: { id: string; 
           const reverso = m.tipo === 'reverso'
           const deshecho = !reverso && fueReversado(p.movimientos, m.id)
           const detalles = [
-            cuando(m.ts),
+            hora(m.ts),
             p.cuentas.find(c => c.id === (m.cuentaId ?? m.deudaId))?.nombre,
             QUIEN[m.quien],
             !m.afectaMisCifras && 'no mueve tus cifras',
@@ -31,6 +33,7 @@ export function Bitacora(p: { movimientos: Movimiento[]; cuentas: { id: string; 
           ].filter(Boolean).join(', ')
           return (
             <li key={m.id} class={reverso || deshecho ? 'mov apagado' : 'mov'}>
+              <span class="mov-fecha"><b>{dia(m.ts)}</b>{mes(m.ts)}</span>
               <div class="mov-texto">
                 <span class={deshecho ? 'mov-nota tachado' : 'mov-nota'}>
                   {reverso ? `Deshace: ${porId.get(m.reversaDe!)?.nota ?? m.nota}` : m.nota}

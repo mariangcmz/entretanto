@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks'
 import { interpretarLinea, type TipoCaptura } from '../engine/captura'
 import { vigentes } from '../engine/cifras'
+import { Calado } from './Calado'
 import { formatear } from '../engine/dinero'
 import type { Datos, Movimiento } from '../engine/tipos'
 
@@ -66,6 +67,7 @@ export function Captura(p: { datos: Datos; registrar: (m: Movimiento) => void })
 
   return (
     <form class="captura" onSubmit={confirmar}>
+      <Calado class="calado" />
       <label class="titulo" for="linea">Anota un movimiento</label>
       <input
         id="linea" class="entrada" type="text" inputMode="text" autoComplete="off" enterKeyHint="done"
