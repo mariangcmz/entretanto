@@ -1,7 +1,7 @@
-import { aMXN } from './dinero'
+import { aMXN, convertir } from './dinero'
 import { planAvalancha } from './deudas'
 import { fechaLocal, mesAntes, pagoDelCorte, proximaFechaIngreso, proximoPago, sumarDias, ultimoCorte } from './fechas'
-import type { Datos, Movimiento } from './tipos'
+import type { Datos, Moneda, Movimiento } from './tipos'
 
 export interface LineaCuenta { nombre: string; saldoMXN: number }
 export interface LineaApartado {
@@ -40,8 +40,8 @@ export interface Cifras {
   pagos: LineaPago[]
 }
 
-const delta = (m: Movimiento) =>
-  m.tipo === 'ingreso' || m.tipo === 'ajuste' ? m.monto : -m.monto
+const delta = (m: Movimiento, monto: number) =>
+  m.tipo === 'ingreso' || m.tipo === 'ajuste' ? monto : -monto
 
 /** Movimientos que cuentan: afectan mis cifras, no son reversos y nadie los reversó. */
 export function vigentes(movs: Movimiento[]): Movimiento[] {
@@ -64,9 +64,10 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
   const tc = d.config.tipoCambioUSD
   const movs = vigentes(d.movimientos)
 
-  // shortcut: asume que el movimiento va en la moneda de su cuenta; convertir si algún día se mezclan.
+  // Cada movimiento se pasa a la moneda de su cuenta o tarjeta al tipo de cambio de hoy.
+  const en = (m: Movimiento, moneda: Moneda) => convertir(m.monto, m.moneda, moneda, tc)
   const cuentas = d.cuentas.map(c => {
-    const saldo = movs.filter(m => m.cuentaId === c.id).reduce((s, m) => s + delta(m), c.saldoInicial)
+    const saldo = movs.filter(m => m.cuentaId === c.id).reduce((s, m) => s + delta(m, en(m, c.moneda)), c.saldoInicial)
     return { nombre: c.nombre, saldoMXN: aMXN(saldo, c.moneda, tc) }
   })
 
@@ -97,7 +98,7 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
       const desde = mesAntes(vence, t.diaPago)
       const pagado = movs
         .filter(m => m.tipo === 'pago_deuda' && m.deudaId === t.id && fechaLocal(m.ts) > desde)
-        .reduce((s, m) => s + m.monto, 0)
+        .reduce((s, m) => s + en(m, t.moneda), 0)
       const reserva = Math.max(0, t.minimo - pagado)
       if (reserva > 0) apartados.push({ nombre: t.nombre, fechaVence: vence, montoMXN: aMXN(reserva, t.moneda, tc), extraSinInteresesMXN: 0, deudaId: t.id })
       pagos.push({ deudaId: t.id, nombre: t.nombre, fechaVence: vence, estado: reserva > 0 ? 'pagar' : 'cubierto', montoMXN: reserva > 0 ? aMXN(reserva, t.moneda, tc) : 0 })
@@ -108,7 +109,7 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
     const vence = pagoDelCorte(desde, t.diaPago)
     const pagado = movs
       .filter(m => m.tipo === 'pago_deuda' && m.deudaId === t.id && fechaLocal(m.ts) >= desde)
-      .reduce((s, m) => s + m.monto, 0)
+      .reduce((s, m) => s + en(m, t.moneda), 0)
 
     const { pago, extra: avalancha } = plan.get(t.id)!
     const reserva = Math.max(0, pago - pagado)
@@ -138,7 +139,7 @@ export function calcularCifras(d: Datos, hoy: string): Cifras {
     // shortcut: un cargo anterior al corte se asume incluido en minimo/pagoSinIntereses; actualizar esos dos al recibir el estado de cuenta.
     const cargos = movs
       .filter(m => m.tipo === 'gasto' && m.deudaId === t.id && fechaLocal(m.ts) >= desde)
-      .reduce((s, m) => s + m.monto, 0)
+      .reduce((s, m) => s + en(m, t.moneda), 0)
     const sobrante = Math.max(0, pagado - Math.max(pago, t.pagoSinIntereses ?? 0))
     const porCubrir = Math.max(0, cargos - sobrante)
     if (porCubrir > 0) {

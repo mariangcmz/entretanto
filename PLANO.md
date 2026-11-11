@@ -121,3 +121,4 @@ Abres la app y ves cuánto te queda en menos de 10 segundos, y registras un gast
 - 2026-11-11 · Fase 3 · varios ingresos (pensión cada mes en su día, Natura variable con fecha cuando se sabe); el próximo cobro es el más cercano y la pill del inicio dice cuál.
 - 2026-11-11 · Fase 3 · los ingresos llevan frecuencia: semanal, quincenal (Kanguro), mensual (pensión) o una sola vez (Natura).
 - 2026-11-11 · Fase 3 · Próximos pagos muestra todas las deudas con su siguiente fecha límite: por pagar, mínimo cubierto (y cuánto falta sin intereses), por cortar, o ya cortó y hay que actualizar el estado de cuenta (`deuda.actualizadaEl`, se guarda al editarla).
+- 2026-11-11 · Fase 3 · cada movimiento guarda su propia moneda: la captura la toma de la línea ("pesos", "usd") o del selector que aparece con tarjetas en dólares, y las cifras la convierten a la moneda de su cuenta o tarjeta.

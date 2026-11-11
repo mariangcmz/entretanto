@@ -3,7 +3,7 @@ import { interpretarLinea, type TipoCaptura } from '../engine/captura'
 import { vigentes } from '../engine/cifras'
 import { Calado } from './Calado'
 import { formatear } from '../engine/dinero'
-import type { Datos, Movimiento } from '../engine/tipos'
+import type { Datos, Moneda, Movimiento } from '../engine/tipos'
 
 const TIPOS: [TipoCaptura, string][] = [['gasto', 'Gasto'], ['ingreso', 'Ingreso'], ['pago_deuda', 'Pago']]
 // Compara sin acentos ni mayúsculas: "debito" encuentra "Débito".
@@ -12,6 +12,7 @@ const llano = (t: string) => t.normalize('NFD').replace(/\p{M}/gu, '').toLowerCa
 const menciona = (nota: string, nombre: string) =>
   llano(nombre).split(/\s+/).some(w => new RegExp(String.raw`(?<!\p{L})` + escapar(w) + String.raw`(?!\p{L})`, 'u').test(nota))
 const escapar = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const MONEDAS: [Moneda, string][] = [['MXN', 'Pesos'], ['USD', 'Dólares']]
 const QUIEN: [Movimiento['quien'], string][] = [['yo', 'Yo'], ['pareja', 'Mi pareja'], ['otro', 'Otra persona']]
 
 export function Captura(p: { datos: Datos; registrar: (m: Movimiento) => void }) {
@@ -25,6 +26,7 @@ export function Captura(p: { datos: Datos; registrar: (m: Movimiento) => void })
   const [origenElegido, setOrigenElegido] = useState<string | null>(null)
   const [ultimoGasto, setUltimoGasto] = useState<string | null>(null) // tu última tarjeta o cuenta de gasto
   const [destino, setDestino] = useState('')
+  const [monedaElegida, setMonedaElegida] = useState<Moneda | null>(null)
   const [aviso, setAviso] = useState('')
 
   const linea = interpretarLinea(texto)
@@ -46,7 +48,9 @@ export function Captura(p: { datos: Datos; registrar: (m: Movimiento) => void })
   // Lo que tocaste gana; si no, lo que nombra la nota ("efectivo", "nu"); si no, la última que usaste para gastar.
   const origen = origenes.find(o => o.valor === origenElegido) ?? origenes.find(o => menciona(nota, o.nombre))
     ?? (tipo === 'gasto' ? origenes.find(o => o.valor === ultimoGasto) : undefined) ?? origenes[0]
-  const moneda = origen?.moneda ?? 'MXN'
+  // Lo que tocaste gana; si no, lo que dice la línea ("pesos", "usd"); si no, la moneda de la cuenta o tarjeta.
+  const moneda = monedaElegida ?? linea?.moneda ?? origen?.moneda ?? 'MXN'
+  const mostrarMoneda = origen?.moneda === 'USD' || moneda !== (origen?.moneda ?? 'MXN')
   const elegido = destinos.find(d => d.valor === destino) ?? destinos.find(d => menciona(nota, d.nombre)) ?? destinos[0]
 
   function confirmar(e: Event) {
@@ -62,7 +66,7 @@ export function Captura(p: { datos: Datos; registrar: (m: Movimiento) => void })
     if (tipo === 'gasto' && origen?.moneda === 'MXN') setUltimoGasto(origen.valor)
     setAviso(`Registrado: ${notaFinal}, ${formatear(linea.monto, moneda)} en ${origen?.nombre}.`)
     setClave(crypto.randomUUID())
-    setTexto(''); setTipoElegido(null); setOrigenElegido(null); setQuien('yo'); setAfecta(true); setDestino('')
+    setTexto(''); setTipoElegido(null); setOrigenElegido(null); setQuien('yo'); setAfecta(true); setDestino(''); setMonedaElegida(null)
   }
 
   return (
@@ -87,6 +91,15 @@ export function Captura(p: { datos: Datos; registrar: (m: Movimiento) => void })
           <legend>{tipo === 'ingreso' ? '¿A dónde entra?' : tipo === 'gasto' ? '¿Con qué pagaste?' : '¿De dónde sale?'}</legend>
           {origenes.map(o => (
             <label key={o.valor}><input type="radio" name="origen" value={o.valor} checked={origen?.valor === o.valor} onChange={() => setOrigenElegido(o.valor)} /><span>{o.nombre}</span></label>
+          ))}
+        </fieldset>
+      )}
+
+      {mostrarMoneda && (
+        <fieldset class="segmentos">
+          <legend>¿En qué moneda?</legend>
+          {MONEDAS.map(([v, txt]) => (
+            <label key={v}><input type="radio" name="moneda" value={v} checked={moneda === v} onChange={() => setMonedaElegida(v)} /><span>{txt}</span></label>
           ))}
         </fieldset>
       )}

@@ -247,6 +247,16 @@ describe('tarjetas con su propio corte y fecha límite', () => {
     expect(c.desglose.apartados.at(-1)).toEqual({ nombre: 'B: gastos desde el corte', fechaVence: '2026-12-18', montoMXN: pesos(250), extraSinInteresesMXN: 0 })
   })
 
+  it('un gasto en pesos con tarjeta en dólares se pasa a dólares; uno en dólares con débito en pesos, a pesos', () => {
+    const d = base()
+    d.deudas.push({ ...tarjeta('Travel', 3, 13), moneda: 'USD', minimo: 0, pagoSinIntereses: 0 })
+    d.movimientos.push(mov({ cuentaId: undefined, deudaId: 'Travel', moneda: 'MXN', monto: 54332, ts: ts('2026-11-05') }))
+    d.movimientos.push(mov({ cuentaId: 'deb', moneda: 'USD', monto: pesos(10), ts: ts('2026-11-05') }))
+    const c = calcularCifras(d, HOY)
+    expect(c.tengoHoy).toBe(pesos(3000 - 180))
+    expect(c.tieneDueno).toBe(pesos(850) + Math.round(54332 / 18) * 18) // 30.18 USD apartados en pesos
+  })
+
   it('lo pagado de más sobre el estado de cuenta cubre los gastos nuevos; USD se convierte', () => {
     const d = base()
     d.deudas.push({ ...tarjeta('A', 3, 13), moneda: 'USD', minimo: pesos(30), pagoSinIntereses: pesos(100) })

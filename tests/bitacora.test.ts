@@ -64,6 +64,9 @@ describe('captura en una línea', () => {
   })
 
   it('sin monto no hay movimiento', () => {
+    expect(interpretarLinea('gaste 543.32 pesos')).toEqual({ monto: 54332, nota: '', tipo: 'gasto', moneda: 'MXN' })
+    expect(interpretarLinea('gasté 20 usd uber')).toEqual({ monto: 2000, nota: 'uber', tipo: 'gasto', moneda: 'USD' })
+    expect(interpretarLinea('12 dólares café')).toMatchObject({ nota: 'café', moneda: 'USD' })
     expect(interpretarLinea('súper')).toBeNull()
     expect(interpretarLinea('0 nada')).toBeNull()
   })
