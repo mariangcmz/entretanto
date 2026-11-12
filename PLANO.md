@@ -64,7 +64,7 @@ La `claveUnica` evita que confirmar dos veces registre dos movimientos.
 - Los cargos de otras personas con `afectaMisCifras = true` sí mueven saldos y se muestran sumados aparte.
 
 ## Plan de deudas
-Avalancha: pagar el mínimo a todas y el sobrante a la deuda con mayor tasa anual. Una tarjeta con saldo pequeño que se paga completa cada mes (sin intereses) sale del plan. El presupuesto mensual destinado a deuda es un valor configurable que sube cuando termina un préstamo con fecha fija. Ya funciona para tarjetas (`config.presupuestoDeuda`, `deuda.pagoCompleto`); falta en la Fase 4 la tabla de seguimiento y los préstamos.
+Avalancha: pagar el mínimo a todas y el sobrante a la deuda con mayor tasa anual. Una tarjeta con saldo pequeño que se paga completa cada mes (sin intereses) sale del plan. El presupuesto mensual destinado a deuda es un valor configurable que sube cuando termina un préstamo con fecha fija. El presupuesto cubre las tarjetas; los préstamos pagan su pago fijo aparte y, al terminar, ese pago se suma al presupuesto. La tabla de seguimiento (`src/engine/seguimiento.ts`) proyecta mes por mes desde el saldo actual de cada deuda: el capturado, más gastos y menos pagos anotados desde `actualizadaEl`.
 
 ## Estructura de carpetas
 ```
@@ -122,3 +122,6 @@ Abres la app y ves cuánto te queda en menos de 10 segundos, y registras un gast
 - 2026-11-11 · Fase 3 · los ingresos llevan frecuencia: semanal, quincenal (Kanguro), mensual (pensión) o una sola vez (Natura).
 - 2026-11-11 · Fase 3 · Próximos pagos muestra todas las deudas con su siguiente fecha límite: por pagar, mínimo cubierto (y cuánto falta sin intereses), por cortar, o ya cortó y hay que actualizar el estado de cuenta (`deuda.actualizadaEl`, se guarda al editarla).
 - 2026-11-11 · Fase 3 · cada movimiento guarda su propia moneda: la captura la toma de la línea ("pesos", "usd") o del selector que aparece con tarjetas en dólares, y las cifras la convierten a la moneda de su cuenta o tarjeta.
+- 2026-11-11 · Fase 4 · pantalla "Tu plan": mes en que sales de deudas, intereses estimados, orden de la avalancha con el mes en que se liquida cada deuda y tabla mes por mes. Sin presupuesto capturado supone que sigues pagando los mínimos de hoy (el mínimo liberado pasa a la siguiente). El mínimo de cada tarjeta se queda fijo en la proyección (shortcut: la hace optimista). Si el pago no cubre los intereses, lo dice en vez de dar una fecha. Pruebas contra cálculos de referencia hechos a mano.
+- 2026-11-11 · Fase 5 · simulador "¿Y si lo compro?" en el inicio: contado o 3 a 18 MSI con tarjeta; calcula *Me queda realmente* sobre una copia con la compra anotada (solo la primera cuota se aparta) y da la fecha límite de cada cuota. Los datos reales no se tocan (prueba obligatoria).
+- 2026-11-11 · Fase 5 · PWA con vite-plugin-pwa (se actualiza sola); íconos del calado en lima sobre berenjena desde `public/icono.svg` (`npx pwa-assets-generator`). El service worker no atiende `/__/` para no romper el login de Firebase; las fuentes de Google se guardan para abrir sin conexión.

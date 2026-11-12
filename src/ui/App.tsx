@@ -9,6 +9,8 @@ import { Bitacora } from './Bitacora'
 import { Calado } from './Calado'
 import { Captura } from './Captura'
 import { Ajustes } from './Ajustes'
+import { Plan } from './Plan'
+import { Simulador } from './Simulador'
 
 const cobro = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric' }).replace(',', '')
 const hoyISO = () => new Date().toLocaleDateString('en-CA') // YYYY-MM-DD en hora local
@@ -26,20 +28,22 @@ export function App({ datos, repo }: { datos: Datos; repo: Repositorio }) {
   const hoy = hoyISO()
   const c = calcularCifras(datos, hoy)
   const [abierta, setAbierta] = useState<Cual | null>(null)
-  const [ajustes, setAjustes] = useState(false)
+  const [pantalla, setPantalla] = useState<'inicio' | 'ajustes' | 'plan'>('inicio')
+  const ir = (x: typeof pantalla) => { setPantalla(x); scrollTo(0, 0) }
   const alternar = (k: Cual) => setAbierta(abierta === k ? null : k)
   const proximo = c.proximoCobro
   const vacia = datos.cuentas.length === 0 && datos.deudas.length === 0
 
-  if (ajustes) return <Ajustes datos={datos} repo={repo} volver={() => { setAjustes(false); scrollTo(0, 0) }} />
+  if (pantalla === 'ajustes') return <Ajustes datos={datos} repo={repo} volver={() => ir('inicio')} />
+  if (pantalla === 'plan') return <Plan datos={datos} hoy={hoy} volver={() => ir('inicio')} ajustes={() => ir('ajustes')} />
 
   return (
     <main>
       <header class="cabecera">
         <h1 class="marca"><span>Entre</span><span>tanto</span></h1>
         {proximo
-          ? <button type="button" class="pill boton" onClick={() => setAjustes(true)}>{proximo.nombre ?? 'Cobras'} el {cobro(proximo.fecha)}</button>
-          : <button type="button" class="pill boton alerta" onClick={() => setAjustes(true)}>¿Cuándo cobras?</button>}
+          ? <button type="button" class="pill boton" onClick={() => ir('ajustes')}>{proximo.nombre ?? 'Cobras'} el {cobro(proximo.fecha)}</button>
+          : <button type="button" class="pill boton alerta" onClick={() => ir('ajustes')}>¿Cuándo cobras?</button>}
       </header>
       {!proximo && <p class="nota">Sin la fecha de tu próximo ingreso, la cifra es provisional. Agrégalo en tus datos.</p>}
 
@@ -66,13 +70,14 @@ export function App({ datos, repo }: { datos: Datos; repo: Repositorio }) {
         )}
       </section>
 
-      <PagosTarjeta pagos={c.pagos} hoy={hoy} abrir={() => setAjustes(true)} objetivo={datos.config.presupuestoDeuda ? undefined : objetivoAvalancha(datos)} />
+      <PagosTarjeta pagos={c.pagos} hoy={hoy} abrir={() => ir('ajustes')} objetivo={datos.config.presupuestoDeuda ? undefined : objetivoAvalancha(datos)} plan={() => ir('plan')} />
 
       {vacia
-        ? <button type="button" class="registrar" onClick={() => setAjustes(true)}>Agrega tus cuentas y tarjetas para empezar</button>
+        ? <button type="button" class="registrar" onClick={() => ir('ajustes')}>Agrega tus cuentas y tarjetas para empezar</button>
         : <Captura datos={datos} registrar={alRegistrar} />}
+      {!vacia && <Simulador datos={datos} hoy={hoy} />}
       <Bitacora movimientos={datos.movimientos} cuentas={[...datos.cuentas, ...datos.deudas]} deshacer={alDeshacer} />
-      <button type="button" class="enlace" onClick={() => setAjustes(true)}>Tus ingresos, cuentas, tarjetas y pagos fijos</button>
+      <button type="button" class="enlace" onClick={() => ir('ajustes')}>Tus ingresos, cuentas, tarjetas y pagos fijos</button>
     </main>
   )
 }
@@ -87,7 +92,7 @@ const enSuMoneda = (centavos: number, moneda: 'MXN' | 'USD') => moneda === 'USD'
 const corto = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }).replace('.', '')
 
 /** Cada tarjeta y préstamo con su siguiente fecha límite y qué toca hacer: siempre a la vista en el inicio. */
-function PagosTarjeta(p: { pagos: LineaPago[]; hoy: string; abrir: () => void; objetivo?: { nombre: string; tasaAnual: number } }) {
+function PagosTarjeta(p: { pagos: LineaPago[]; hoy: string; abrir: () => void; plan: () => void; objetivo?: { nombre: string; tasaAnual: number } }) {
   if (p.pagos.length === 0) return null
   const f = (iso: string) => new Date(`${iso}T12:00:00`)
   const detalle = (a: LineaPago) => {
@@ -120,6 +125,7 @@ function PagosTarjeta(p: { pagos: LineaPago[]; hoy: string; abrir: () => void; o
         })}
       </ol>
       {p.objetivo && <p class="nota">Lo que puedas meter de más, a {p.objetivo.nombre}: tiene la tasa más alta ({p.objetivo.tasaAnual}%).</p>}
+      <button type="button" class="enlace fuerte" onClick={p.plan}>¿Cuándo salgo de deudas? Ver tu plan</button>
     </section>
   )
 }

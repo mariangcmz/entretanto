@@ -217,3 +217,41 @@ button.pill { border: 0; cursor: pointer; }
 .pagos { margin-top: .75rem; }
 .mov-detalle.vencido { color: var(--alerta); font-weight: 600; }
 .mov-monto small { display: block; text-align: right; font-size: .85rem; font-weight: 400; font-stretch: 75%; color: var(--suave); }
+
+/* Fase 4: plan de deudas. La fecha de salida es la cifra grande, en lima como el dinero libre. */
+.plan-fecha { font-size: clamp(2.75rem, 14vw, 3.75rem); text-wrap: balance; }
+.plan-fecha::first-letter { text-transform: uppercase; }
+.plan-intro { margin: 0 0 .25rem; color: var(--suave); }
+.enlace.fuerte-banner { color: var(--lima); font-weight: 600; }
+.tabla-plan { margin-top: 1rem; border-top: 1px solid var(--linea); }
+.tabla-plan summary {
+  cursor: pointer; list-style: none; min-height: 3rem; display: flex; align-items: center; justify-content: space-between;
+  font: italic 400 1.6rem/1.1 var(--serif);
+}
+.tabla-plan table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.tabla-plan th, .tabla-plan td { padding: .6rem 0; border-bottom: 1px solid var(--linea); text-align: right; vertical-align: baseline; }
+.tabla-plan thead th { font-size: .9rem; font-stretch: 75%; font-weight: 600; color: var(--suave); }
+.tabla-plan th:first-child { text-align: left; font-weight: 400; }
+.tabla-plan tbody th::first-letter { text-transform: uppercase; }
+.tabla-plan td small { display: block; font-size: .85rem; font-stretch: 75%; color: var(--alerta); font-weight: 600; }
+.tabla-plan tr.liquida th { font-weight: 700; }
+
+/* Fase 5: simulador. Misma nota marfil que la captura, cerrada hasta que la abres. */
+.simulador { margin-top: 0; }
+.simulador > summary { cursor: pointer; list-style: none; min-height: 2.75rem; display: flex; align-items: center; justify-content: space-between; font: italic 400 1.6rem/1.1 var(--serif); color: var(--texto); }
+/* Flecha de abrir y cerrar, compartida con la tabla del plan */
+:is(.simulador, .tabla-plan) > summary::-webkit-details-marker { display: none; }
+:is(.simulador, .tabla-plan) > summary::after { content: ""; width: .6rem; height: .6rem; border: solid var(--suave); border-width: 0 2px 2px 0; transform: rotate(45deg) translateY(-.2rem); }
+:is(.simulador, .tabla-plan)[open] > summary::after { transform: rotate(-135deg); }
+.simulador { display: block; }
+.simulador:not([open]) { padding-block: .6rem; }
+.sim-cuerpo { display: grid; gap: 1rem; padding-top: .75rem; }
+.sim-resultado { display: grid; gap: .5rem; }
+.sim-resultado .nota { margin: 0; color: var(--suave); }
+.sim-cifra { margin: 0; display: grid; }
+.sim-cifra span, .sim-cifra small { font-size: 1rem; font-stretch: 75%; font-weight: 600; color: var(--suave); }
+.sim-cifra b { font: 400 3rem/1.05 var(--serif); font-variant-numeric: lining-nums; }
+.sim-cifra b.negativo { color: var(--alerta); }
+.sim-cuotas { list-style: none; margin: 0; padding: 0; font-variant-numeric: tabular-nums; }
+.sim-cuotas li { display: flex; justify-content: space-between; gap: 1rem; padding: .45rem 0; border-bottom: 1px solid var(--linea); font-size: 1rem; }
+.sim-cuotas li span:last-child { white-space: nowrap; font-weight: 600; }
