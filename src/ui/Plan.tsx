@@ -96,7 +96,7 @@ export function Plan(p: { datos: Datos; hoy: string; volver: () => void; ajustes
               ))}
             </tbody>
           </table>
-          <p class="nota">Es una proyección: supone los mínimos de hoy y que no agregas cargos nuevos. Se actualiza con cada pago que anotas.</p>
+          <p class="nota">Es una proyección, no asesoría financiera: supone los mínimos de hoy y que no agregas cargos nuevos. Se actualiza con cada pago que anotas.</p>
         </details>
       )}
     </main>

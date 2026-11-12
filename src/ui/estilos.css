@@ -255,3 +255,30 @@ button.pill { border: 0; cursor: pointer; }
 .sim-cuotas { list-style: none; margin: 0; padding: 0; font-variant-numeric: tabular-nums; }
 .sim-cuotas li { display: flex; justify-content: space-between; gap: 1rem; padding: .45rem 0; border-bottom: 1px solid var(--linea); font-size: 1rem; }
 .sim-cuotas li span:last-child { white-space: nowrap; font-weight: 600; }
+
+/* Beta: primeros pasos, respaldo, aviso legal y pie de enlaces */
+.pasos h2 { margin: 0; font: italic 400 1.75rem/1.1 var(--serif); }
+.pasos .nota { margin: .25rem 0 .5rem; color: var(--suave); }
+.pasos ol { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.paso button {
+  all: unset; box-sizing: border-box; width: 100%; min-height: 4rem; padding: .7rem 1rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  background: var(--tarjeta); border: 1px solid var(--linea); border-radius: 1rem;
+}
+.paso button:focus-visible { outline: 3px solid var(--frambuesa); outline-offset: 2px; }
+.paso-texto { display: grid; font-weight: 600; }
+.paso-texto small { font-weight: 400; font-size: .95rem; font-stretch: 75%; color: var(--suave); }
+.paso-marca { flex: none; width: 1.5rem; height: 1.5rem; border-radius: 50%; border: 2px solid var(--linea); }
+.paso.hecho .paso-marca { border-color: var(--lima); background: var(--lima) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233B1439' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E") center / 1rem no-repeat; }
+.paso.hecho .paso-texto { color: var(--suave); }
+
+.respaldo-revision { display: grid; gap: .6rem; }
+.archivo:focus-within { outline: 3px solid var(--frambuesa); outline-offset: 2px; }
+
+.pie { display: grid; justify-items: start; margin-top: 1rem; }
+.portada-pie { color: var(--suave); }
+.portada-pie .enlace { min-height: 0; font-size: inherit; }
+
+.aviso-legal section { display: grid; gap: .25rem; margin-top: 1rem; }
+.aviso-legal h2 { margin: 0; font: italic 400 1.6rem/1.1 var(--serif); }
+.aviso-legal p { margin: .25rem 0; max-width: 65ch; }

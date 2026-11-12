@@ -5,6 +5,7 @@ import { crearRepositorio } from '../data/repositorio'
 import type { Datos } from '../engine/tipos'
 import { App } from './App'
 import { Calado } from './Calado'
+import { Aviso } from './Aviso'
 
 /** Decide qué se ve: entrar con Google, cargando o la app con los datos de la cuenta. */
 export function Raiz() {
@@ -31,6 +32,7 @@ function ConDatos(p: { uid: string }) {
 function Entrada() {
   const [error, setError] = useState('')
   const [entrando, setEntrando] = useState(false)
+  const [aviso, setAviso] = useState(false)
   async function entrar() {
     setEntrando(true); setError('')
     try { await entrarConGoogle() } catch (e) {
@@ -38,11 +40,13 @@ function Entrada() {
       if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') setError('No se pudo entrar. Revisa tu conexión e inténtalo otra vez.')
     } finally { setEntrando(false) }
   }
+  if (aviso) return <Aviso volver={() => setAviso(false)} />
   return (
     <Portada>
       <p class="portada-lema">Cuánto te queda de verdad, hasta que vuelvas a cobrar.</p>
       <button class="registrar" type="button" onClick={entrar} disabled={entrando}>{entrando ? 'Entrando…' : 'Entrar con Google'}</button>
       <p class="aviso" role="status">{error}</p>
+      <p class="nota portada-pie">Versión beta. No es asesoría financiera. <button type="button" class="enlace" onClick={() => setAviso(true)}>Aviso de privacidad</button></p>
     </Portada>
   )
 }

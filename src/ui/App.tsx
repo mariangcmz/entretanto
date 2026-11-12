@@ -9,6 +9,8 @@ import { Bitacora } from './Bitacora'
 import { Calado } from './Calado'
 import { Captura } from './Captura'
 import { Ajustes } from './Ajustes'
+import { Aviso, CONTACTO, reportar } from './Aviso'
+import type { Catalogo } from '../data/repositorio'
 import { Plan } from './Plan'
 import { Simulador } from './Simulador'
 
@@ -28,13 +30,22 @@ export function App({ datos, repo }: { datos: Datos; repo: Repositorio }) {
   const hoy = hoyISO()
   const c = calcularCifras(datos, hoy)
   const [abierta, setAbierta] = useState<Cual | null>(null)
-  const [pantalla, setPantalla] = useState<'inicio' | 'ajustes' | 'plan'>('inicio')
-  const ir = (x: typeof pantalla) => { setPantalla(x); scrollTo(0, 0) }
+  const [pantalla, setPantalla] = useState<'inicio' | 'ajustes' | 'plan' | 'aviso'>('inicio')
+  const [abrir, setAbrir] = useState<Catalogo | undefined>(undefined) // la sección de Tus datos que abre un primer paso
+  const ir = (x: typeof pantalla, cat?: Catalogo) => { setPantalla(x); setAbrir(cat); scrollTo(0, 0) }
   const alternar = (k: Cual) => setAbierta(abierta === k ? null : k)
   const proximo = c.proximoCobro
   const vacia = datos.cuentas.length === 0 && datos.deudas.length === 0
+  // Cuenta nueva: sin cuándo cobras ni cuánto tienes, las cifras no dicen nada todavía.
+  const pasos: { hecho: boolean; texto: string; detalle: string; cat: Catalogo }[] = [
+    { hecho: Boolean(datos.ingresos?.length || datos.config.fechaProximoIngreso), texto: 'Cuándo cobras', detalle: 'Tu sueldo, pensión o lo que te entre, y cada cuánto', cat: 'ingresos' },
+    { hecho: datos.cuentas.length > 0, texto: 'Cuánto tienes hoy', detalle: 'Tu cuenta de débito o tu efectivo, con su saldo', cat: 'cuentas' },
+    { hecho: datos.deudas.length > 0, texto: 'Tus tarjetas y préstamos', detalle: 'Con su día de corte y de pago. Si no tienes, sáltate este', cat: 'deudas' },
+  ]
+  const empezando = !pasos[0]!.hecho || !pasos[1]!.hecho
 
-  if (pantalla === 'ajustes') return <Ajustes datos={datos} repo={repo} volver={() => ir('inicio')} />
+  if (pantalla === 'ajustes') return <Ajustes datos={datos} repo={repo} abrir={abrir} volver={() => ir('inicio')} aviso={() => ir('aviso')} />
+  if (pantalla === 'aviso') return <Aviso volver={() => ir('inicio')} />
   if (pantalla === 'plan') return <Plan datos={datos} hoy={hoy} volver={() => ir('inicio')} ajustes={() => ir('ajustes')} />
 
   return (
@@ -45,7 +56,22 @@ export function App({ datos, repo }: { datos: Datos; repo: Repositorio }) {
           ? <button type="button" class="pill boton" onClick={() => ir('ajustes')}>{proximo.nombre ?? 'Cobras'} el {cobro(proximo.fecha)}</button>
           : <button type="button" class="pill boton alerta" onClick={() => ir('ajustes')}>¿Cuándo cobras?</button>}
       </header>
-      {!proximo && <p class="nota">Sin la fecha de tu próximo ingreso, la cifra es provisional. Agrégalo en tus datos.</p>}
+      {empezando ? (
+        <section class="pasos" aria-labelledby="t-pasos">
+          <h2 id="t-pasos">Para empezar, tres datos</h2>
+          <p class="nota">Con ellos Entretanto calcula cuánto te queda de verdad. Toma un par de minutos.</p>
+          <ol>
+            {pasos.map(x => (
+              <li key={x.cat} class={x.hecho ? 'paso hecho' : 'paso'}>
+                <button type="button" onClick={() => ir('ajustes', x.cat)}>
+                  <span class="paso-texto">{x.texto}<small>{x.hecho ? 'Listo' : x.detalle}</small></span>
+                  <span class="paso-marca" aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : !proximo && <p class="nota">Sin la fecha de tu próximo ingreso, la cifra es provisional. Agrégalo en tus datos.</p>}
 
       <section class="banner" aria-labelledby="t-queda">
         <Calado class="calado" />
@@ -72,12 +98,15 @@ export function App({ datos, repo }: { datos: Datos; repo: Repositorio }) {
 
       <PagosTarjeta pagos={c.pagos} hoy={hoy} abrir={() => ir('ajustes')} objetivo={datos.config.presupuestoDeuda ? undefined : objetivoAvalancha(datos)} plan={() => ir('plan')} />
 
-      {vacia
-        ? <button type="button" class="registrar" onClick={() => ir('ajustes')}>Agrega tus cuentas y tarjetas para empezar</button>
-        : <Captura datos={datos} registrar={alRegistrar} />}
+      {/* Sin cuentas ni tarjetas no hay de dónde anotar; los primeros pasos llevan a agregarlas. */}
+      {!vacia && <Captura datos={datos} registrar={alRegistrar} />}
       {!vacia && <Simulador datos={datos} hoy={hoy} />}
       <Bitacora movimientos={datos.movimientos} cuentas={[...datos.cuentas, ...datos.deudas]} deshacer={alDeshacer} />
-      <button type="button" class="enlace" onClick={() => ir('ajustes')}>Tus ingresos, cuentas, tarjetas y pagos fijos</button>
+      <nav class="pie" aria-label="Más">
+        <button type="button" class="enlace" onClick={() => ir('ajustes')}>Tus ingresos, cuentas, tarjetas y pagos fijos</button>
+        {CONTACTO && <a class="enlace" href={reportar()}>Reportar algo que no funciona</a>}
+        <button type="button" class="enlace" onClick={() => ir('aviso')}>Privacidad · no es asesoría financiera</button>
+      </nav>
     </main>
   )
 }

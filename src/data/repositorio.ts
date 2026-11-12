@@ -49,6 +49,19 @@ export function crearRepositorio(db: Firestore, uid: string) {
       return setDoc(doc(db, ruta(cat, id)), resto)
     },
     borrar: (cat: Catalogo, id: string) => deleteDoc(doc(db, ruta(cat, id))),
+
+    /**
+     * Carga un respaldo: config y cada cuenta, deuda, pago fijo o ingreso del archivo se escriben encima (por id);
+     * lo que solo existe aquí se queda. Recibe solo los movimientos nuevos: los que ya están no se pueden reescribir.
+     */
+    importar: (d: Datos) => {
+      const cats: Catalogo[] = ['cuentas', 'deudas', 'compromisos', 'ingresos']
+      return Promise.all([
+        setDoc(doc(db, ruta('config', 'principal')), d.config),
+        ...cats.flatMap(cat => ((d[cat] ?? []) as { id: string }[]).map(({ id, ...resto }) => setDoc(doc(db, ruta(cat, id)), resto))),
+        ...d.movimientos.map(m => setDoc(doc(db, ruta('movimientos', m.claveUnica)), m)),
+      ])
+    },
   }
 }
 

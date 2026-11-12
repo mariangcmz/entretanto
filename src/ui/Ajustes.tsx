@@ -1,8 +1,10 @@
-import { useState } from 'preact/hooks'
+import { useEffect, useState } from 'preact/hooks'
 import type { Catalogo, Repositorio } from '../data/repositorio'
 import { salir } from '../data/firebase'
 import { formatear, pesos } from '../engine/dinero'
 import type { Config, Datos } from '../engine/tipos'
+import { CONTACTO, reportar } from './Aviso'
+import { Respaldo } from './Respaldo'
 
 // Formularios de lo que sí se edita: cuentas, tarjetas y préstamos, pagos fijos y la config.
 // Los movimientos no pasan por aquí: esos solo se agregan desde la captura.
@@ -148,7 +150,7 @@ const TITULOS: Record<Catalogo, [string, string]> = {
   ingresos: ['Ingresos', 'Agregar ingreso'],
 }
 
-function Lista(p: { cat: Catalogo; datos: Datos; repo: Repositorio }) {
+function Lista(p: { cat: Catalogo; datos: Datos; repo: Repositorio; abierta?: boolean }) {
   const items = (p.datos[p.cat] ?? []) as unknown as (Item & { id: string; nombre: string; moneda: 'MXN' | 'USD' })[]
   const [titulo, agregar] = TITULOS[p.cat]
   // Al guardar una deuda se anota el día: si después corta, la app sabe que sus cifras son del estado anterior.
@@ -175,7 +177,7 @@ function Lista(p: { cat: Catalogo; datos: Datos; repo: Repositorio }) {
             : <button type="button" class="enlace fuerte" onClick={() => p.repo.borrar(p.cat, i.id)}>Quitar {i.nombre}</button>}
         </details>
       ))}
-      <details class="ajuste-item nuevo">
+      <details class="ajuste-item nuevo" open={p.abierta}>
         <summary>{agregar}</summary>
         <Editor
           key={items.length} campos={CAMPOS[p.cat]} item={{ ...NUEVO[p.cat], id: crypto.randomUUID() }}
@@ -186,7 +188,9 @@ function Lista(p: { cat: Catalogo; datos: Datos; repo: Repositorio }) {
   )
 }
 
-export function Ajustes(p: { datos: Datos; repo: Repositorio; volver: () => void }) {
+export function Ajustes(p: { datos: Datos; repo: Repositorio; volver: () => void; aviso: () => void; abrir?: Catalogo }) {
+  // Desde un primer paso: directo a esa sección, con su formulario de agregar abierto.
+  useEffect(() => { if (p.abrir) document.getElementById(`t-${p.abrir}`)?.scrollIntoView() }, [])
   return (
     <main>
       <header class="cabecera">
@@ -197,11 +201,15 @@ export function Ajustes(p: { datos: Datos; repo: Repositorio; volver: () => void
         <h2 id="t-config">Deudas y tipo de cambio</h2>
         <Editor campos={CAMPOS_CONFIG} item={p.datos.config as unknown as Item} guardar={i => p.repo.guardarConfig(i as unknown as Config)} boton="Guardar" />
       </section>
-      <Lista cat="ingresos" datos={p.datos} repo={p.repo} />
-      <Lista cat="cuentas" datos={p.datos} repo={p.repo} />
-      <Lista cat="deudas" datos={p.datos} repo={p.repo} />
-      <Lista cat="compromisos" datos={p.datos} repo={p.repo} />
-      <button type="button" class="enlace" onClick={salir}>Cerrar sesión</button>
+      {(['ingresos', 'cuentas', 'deudas', 'compromisos'] as const).map(cat => (
+        <Lista key={cat} cat={cat} datos={p.datos} repo={p.repo} abierta={p.abrir === cat} />
+      ))}
+      <Respaldo datos={p.datos} repo={p.repo} />
+      <nav class="pie" aria-label="Más">
+        {CONTACTO && <a class="enlace" href={reportar()}>Reportar algo que no funciona</a>}
+        <button type="button" class="enlace" onClick={p.aviso}>Privacidad · no es asesoría financiera</button>
+        <button type="button" class="enlace" onClick={salir}>Cerrar sesión</button>
+      </nav>
     </main>
   )
 }
