@@ -18,7 +18,7 @@ service cloud.firestore {
           // INVITADAS
           '1050ef4513f997527d88e7ab64449d76d90a70f0f4d729e2007511cbf3f16633', // dueña
           '4ccc9470333b08c0f05e77f2846e6a88bf82c95b76ecc7678a88e62f5ced5ad5', // tester 1
-          'f36da3395857713df7fc7b7cdb67e82710c478d8d4d559aae51559a068d08e8c', // tester 2
+          '2af88c9e7b5234c1c15bc7a227ca4bd3ff1aefe851d440748a652431d2815782', // tester 2
         ];
     }
 
