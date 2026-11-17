@@ -1,10 +1,13 @@
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
 import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
-import reglas from '../firestore.rules?raw'
+import reglasPublicadas from '../firestore.rules?raw'
 
 // Corre contra el emulador de Firestore: `npm run test:reglas` (necesita Java).
 const conEmulador = Boolean(import.meta.env.FIRESTORE_EMULATOR_HOST)
+
+// Las pruebas invitan a ana@example.test (su SHA-256) en lugar de a las personas reales.
+const reglas = reglasPublicadas.replace('// INVITADAS', "'ffc4b5d8fdf3544b2b24dba46e76a12a1fffb6d7561509033b0ea5eef0033eab',")
 
 const mov = (clave: string) => ({
   id: clave, ts: 1762800000000, tipo: 'gasto', monto: 30000, moneda: 'MXN', cuentaId: 'deb',
@@ -19,7 +22,8 @@ describe.skipIf(!conEmulador)('reglas de Firestore', () => {
   beforeEach(() => env.clearFirestore())
   afterAll(() => env.cleanup())
 
-  const yo = () => env.authenticatedContext('ana').firestore()
+  const invitada = (uid: string, email: string) => env.authenticatedContext(uid, { email, email_verified: true }).firestore()
+  const yo = () => invitada('ana', 'ana@example.test')
 
   it('la dueña crea y lee sus movimientos', async () => {
     await assertSucceeds(setDoc(doc(yo(), 'users/ana/movimientos/k1'), mov('k1')))
@@ -40,7 +44,7 @@ describe.skipIf(!conEmulador)('reglas de Firestore', () => {
   })
 
   it('nadie más lee ni escribe los datos de otra persona', async () => {
-    const otra = env.authenticatedContext('beto').firestore()
+    const otra = invitada('beto', 'ana@example.test')
     const anonima = env.unauthenticatedContext().firestore()
     await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'users/ana/cuentas/deb'), { nombre: 'Débito' }))
     await assertFails(getDoc(doc(otra, 'users/ana/cuentas/deb')))
@@ -56,5 +60,14 @@ describe.skipIf(!conEmulador)('reglas de Firestore', () => {
       await assertSucceeds(deleteDoc(d))
     }
     await assertFails(setDoc(doc(yo(), 'users/ana/inventada/x'), { a: 1 }))
+  })
+
+  it('beta cerrada: un correo sin invitación o sin verificar no lee ni escribe ni lo suyo', async () => {
+    const extrana = env.authenticatedContext('eva', { email: 'eva@example.test', email_verified: true }).firestore()
+    const sinVerificar = env.authenticatedContext('ana', { email: 'ana@example.test', email_verified: false }).firestore()
+    await assertFails(getDoc(doc(extrana, 'users/eva/cuentas/deb')))
+    await assertFails(setDoc(doc(extrana, 'users/eva/movimientos/k1'), mov('k1')))
+    await assertFails(getDoc(doc(sinVerificar, 'users/ana/cuentas/deb')))
+    await assertSucceeds(getDoc(doc(invitada('ana', 'ANA@example.test'), 'users/ana/cuentas/deb'))) // sin importar mayúsculas
   })
 })

@@ -5,7 +5,21 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function esDuena(uid) {
-      return request.auth != null && request.auth.uid == uid;
+      return request.auth != null && request.auth.uid == uid && invitada();
+    }
+
+    // Beta cerrada: solo entran los correos invitados. El repositorio es público, así que se guarda el
+    // SHA-256 del correo en minúsculas, no el correo. Para invitar a alguien:
+    //   node -e "console.log(require('crypto').createHash('sha256').update('correo@ejemplo.com').digest('hex'))"
+    // pega el resultado en la lista y publica: npx firebase deploy --only firestore:rules
+    function invitada() {
+      return request.auth.token.email_verified == true
+        && hashing.sha256(request.auth.token.email.lower()).toHexString().lower() in [
+          // INVITADAS
+          '1050ef4513f997527d88e7ab64449d76d90a70f0f4d729e2007511cbf3f16633', // dueña
+          '4ccc9470333b08c0f05e77f2846e6a88bf82c95b76ecc7678a88e62f5ced5ad5', // tester 1
+          'f36da3395857713df7fc7b7cdb67e82710c478d8d4d559aae51559a068d08e8c', // tester 2
+        ];
     }
 
     function movimientoValido(id) {

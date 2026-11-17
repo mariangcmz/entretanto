@@ -1,11 +1,11 @@
 import { onAuthStateChanged, type User } from 'firebase/auth'
 import { useEffect, useMemo, useState } from 'preact/hooks'
-import { auth, configurado, db, entrarConGoogle } from '../data/firebase'
+import { auth, configurado, db, entrarConGoogle, salir } from '../data/firebase'
 import { crearRepositorio } from '../data/repositorio'
 import type { Datos } from '../engine/tipos'
 import { App } from './App'
 import { Calado } from './Calado'
-import { Aviso } from './Aviso'
+import { Aviso, CONTACTO } from './Aviso'
 
 /** Decide qué se ve: entrar con Google, cargando o la app con los datos de la cuenta. */
 export function Raiz() {
@@ -15,15 +15,23 @@ export function Raiz() {
   if (!configurado) return <Portada><p class="nota">Falta configurar Firebase: copia <code>.env.example</code> como <code>.env.local</code> y llénalo.</p></Portada>
   if (usuaria === undefined) return <Portada><p class="nota" role="status">Abriendo…</p></Portada>
   if (!usuaria) return <Entrada />
-  return <ConDatos key={usuaria.uid} uid={usuaria.uid} />
+  return <ConDatos key={usuaria.uid} uid={usuaria.uid} email={usuaria.email ?? ''} />
 }
 
-function ConDatos(p: { uid: string }) {
+function ConDatos(p: { uid: string; email: string }) {
   const repo = useMemo(() => crearRepositorio(db, p.uid), [p.uid])
   const [datos, setDatos] = useState<Datos | null>(null)
   const [error, setError] = useState('')
-  useEffect(() => repo.escuchar(setDatos, e => setError(e.message)), [repo])
+  useEffect(() => repo.escuchar(setDatos, e => setError((e as { code?: string }).code === 'permission-denied' ? 'sin-invitacion' : e.message)), [repo])
 
+  // Las reglas solo dejan entrar a los correos invitados (beta cerrada).
+  if (error === 'sin-invitacion') return (
+    <Portada>
+      <p class="portada-lema">Entretanto está en beta cerrada.</p>
+      <p class="nota">Tu cuenta {p.email} todavía no tiene invitación. Si te invitaron con otro correo, entra con ese. Para pedir lugar, escribe a {CONTACTO}.</p>
+      <button class="registrar" type="button" onClick={salir}>Entrar con otra cuenta</button>
+    </Portada>
+  )
   if (error) return <Portada><p class="aviso" role="alert">No pudimos leer tus datos: {error}</p></Portada>
   if (!datos) return <Portada><p class="nota" role="status">Trayendo tus cifras…</p></Portada>
   return <App datos={datos} repo={repo} />
