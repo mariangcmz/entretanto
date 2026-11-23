@@ -46,8 +46,12 @@ export function Captura(p: { datos: Datos; registrar: (m: Movimiento) => void })
     ...cuentas.map(c => ({ valor: `c:${c.id}`, nombre: c.nombre, moneda: c.moneda, deudaId: undefined, cuentaId: c.id })),
   ]
   // Lo que tocaste gana; si no, lo que nombra la nota ("efectivo", "nu"); si no, la última que usaste para gastar.
+  // Sin ninguna de esas pistas y con varias opciones, no se adivina: cargarlo a la tarjeta equivocada descuadra todo.
   const origen = origenes.find(o => o.valor === origenElegido) ?? origenes.find(o => menciona(nota, o.nombre))
-    ?? (tipo === 'gasto' ? origenes.find(o => o.valor === ultimoGasto) : undefined) ?? origenes[0]
+    ?? (tipo === 'gasto' ? origenes.find(o => o.valor === ultimoGasto) : undefined)
+    ?? (origenes.length === 1 ? origenes[0] : undefined)
+  const faltaOrigen = origenes.length > 1 && !origen
+  const preguntaOrigen = tipo === 'ingreso' ? '¿A dónde entra?' : tipo === 'gasto' ? '¿Con qué pagaste?' : '¿De dónde sale?'
   // Lo que tocaste gana; si no, lo que dice la línea ("pesos", "usd"); si no, la moneda de la cuenta o tarjeta.
   const moneda = monedaElegida ?? linea?.moneda ?? origen?.moneda ?? 'MXN'
   const mostrarMoneda = origen?.moneda === 'USD' || moneda !== (origen?.moneda ?? 'MXN')
@@ -55,7 +59,7 @@ export function Captura(p: { datos: Datos; registrar: (m: Movimiento) => void })
 
   function confirmar(e: Event) {
     e.preventDefault()
-    if (!linea) return
+    if (!linea || faltaOrigen) return
     const notaFinal = linea.nota || TIPOS.find(t => t[0] === tipo)![1]
     p.registrar({
       id: clave, claveUnica: clave, ts: Date.now(), tipo, monto: linea.monto, moneda,
@@ -88,7 +92,7 @@ export function Captura(p: { datos: Datos; registrar: (m: Movimiento) => void })
 
       {origenes.length > 1 && (
         <fieldset class="segmentos">
-          <legend>{tipo === 'ingreso' ? '¿A dónde entra?' : tipo === 'gasto' ? '¿Con qué pagaste?' : '¿De dónde sale?'}</legend>
+          <legend>{preguntaOrigen}</legend>
           {origenes.map(o => (
             <label key={o.valor}><input type="radio" name="origen" value={o.valor} checked={origen?.valor === o.valor} onChange={() => setOrigenElegido(o.valor)} /><span>{o.nombre}</span></label>
           ))}
@@ -123,8 +127,8 @@ export function Captura(p: { datos: Datos; registrar: (m: Movimiento) => void })
         <label class="casilla"><input type="checkbox" checked={afecta} onChange={e => setAfecta(e.currentTarget.checked)} /> Mueve mis cifras</label>
       </details>
 
-      <button class="registrar" type="submit" disabled={!linea}>
-        {linea ? `Registrar ${formatear(linea.monto, moneda)}` : 'Escribe un monto para registrar'}
+      <button class="registrar" type="submit" disabled={!linea || faltaOrigen}>
+        {!linea ? 'Escribe un monto para registrar' : faltaOrigen ? preguntaOrigen : `Registrar ${formatear(linea.monto, moneda)}`}
       </button>
       <p class="aviso" role="status">{aviso}</p>
     </form>
