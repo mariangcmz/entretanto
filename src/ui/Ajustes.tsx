@@ -48,15 +48,15 @@ const CAMPOS: Record<Catalogo, Campo[]> = {
   ],
   ingresos: [
     { k: 'nombre', etiqueta: 'Nombre', tipo: 'texto' },
-    { k: 'monto', etiqueta: 'Cuánto esperas', tipo: 'dinero', opcional: true, ayuda: 'Si varía, déjalo vacío o pon lo mínimo que esperas' },
+    { k: 'monto', etiqueta: 'Cuánto te pagan cada vez', tipo: 'dinero', opcional: true, ayuda: 'Lo que recibes en cada pago. Si varía, pon lo mínimo o déjalo vacío' },
     MONEDA,
     {
       k: 'frecuencia', etiqueta: '¿Cada cuánto te pagan?', tipo: 'opciones', opciones: FRECUENCIAS,
       defecto: i => i.diaCobro !== undefined ? 'mensual' : 'una_vez', // los guardados antes de la frecuencia
     },
     { ...DIA('diaCobro', 'Día de cobro'), ayuda: 'El mismo día cada mes', si: v => v.frecuencia === 'mensual' },
-    { ...DIA('diaCobro', 'Primer día de la quincena'), ayuda: 'Si lo dejas vacío, el 15', si: v => v.frecuencia === 'quincenal' },
-    { ...DIA('diaCobro2', 'Segundo día de la quincena'), ayuda: 'Si lo dejas vacío, el último del mes', si: v => v.frecuencia === 'quincenal' },
+    { ...DIA('diaCobro', 'Primer día de pago'), ayuda: 'El día en que lo esperas, aunque a veces caiga antes. Si lo dejas vacío, el 15', si: v => v.frecuencia === 'quincenal' },
+    { ...DIA('diaCobro2', 'Segundo día de pago'), ayuda: 'El día en que lo esperas. Si lo dejas vacío, el último del mes', si: v => v.frecuencia === 'quincenal' },
     { k: 'fecha', etiqueta: 'Fecha del cobro', tipo: 'fecha', opcional: true, ayuda: 'Si ya sabes cuándo; si no, anótalo como ingreso cuando te paguen', si: v => v.frecuencia === 'una_vez' },
     { k: 'fecha', etiqueta: 'Un día en que te pagan', tipo: 'fecha', ayuda: 'De ahí se cuenta cada 7 días', si: v => v.frecuencia === 'semanal' },
   ],
@@ -70,7 +70,7 @@ const CAMPOS: Record<Catalogo, Campo[]> = {
 
 const CAMPOS_CONFIG: Campo[] = [
   { k: 'tipoCambioUSD', etiqueta: 'Tipo de cambio (pesos por dólar)', tipo: 'numero', min: 0.01 },
-  { k: 'presupuestoDeuda', etiqueta: 'Para deudas cada mes', tipo: 'dinero', opcional: true, ayuda: 'Lo que pase de los mínimos va a la tarjeta con la tasa más alta (avalancha)' },
+  { k: 'presupuestoDeuda', etiqueta: 'Cuánto puedes pagar a deudas al mes', tipo: 'dinero', opcional: true, ayuda: 'El total que apartas para todas tus deudas, no lo que debes. Lo que pase de los mínimos va a la tarjeta con la tasa más alta (avalancha)' },
 ]
 
 const NUEVO: Record<Catalogo, Item> = {
